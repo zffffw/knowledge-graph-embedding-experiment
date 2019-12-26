@@ -1,0 +1,9 @@
+KingOf	0
+SucceededBy	1
+ParentOf	2
+HusbandOf	3
+SuceededBy	4
+GrandparentOf	5
+WifeOf	6
+SiblingOf	7
+QueenOf	8

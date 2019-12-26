@@ -1,0 +1,16 @@
+Harthacnut	0
+Denmark	1
+GormTheOld	2
+Thyra	3
+Toke	4
+HaraldBluetooth	5
+SweynForkbeard	6
+GunhildeHaraldsdaughter	7
+Norway	8
+Gyrid	9
+Tove	10
+HaraldTheSecond	11
+CnutTheGreat	12
+GunhildeOfWenden	13
+Æthelred	14
+England	15

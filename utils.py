@@ -16,6 +16,8 @@ def get_model(model_name, dataset_name, em_dim, p_norm):
     if model_name == 'TransE':
         return TransE(ent_tot=ent_tot, rel_tot=rel_tot, em_dim=em_dim, p_norm=p_norm)
     elif model_name == 'DistMult':
+        return DistMult(ent_tot=ent_tot, rel_tot=rel_tot, em_dim=em_dim)
+    else:
         pass
 
 def get_loss(loss_name, margin):

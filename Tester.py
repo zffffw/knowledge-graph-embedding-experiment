@@ -34,9 +34,15 @@ class Tester(object):
         Hist_1 = 0
         for n, data_val in enumerate(self.test_data_loader):
             h, r, t = data_val['en1'], data_val['rel'], data_val['en2']
+            # test_data = torch.zeros((self.ent_tot, 3))
+            # test_data[:, 1] = r
+            # test_data = torch.cat((torch.arange(0, self.ent_tot).reshape(-1, 1), torch.Tensor([r]*self.ent_tot).long().reshape(-1, 1),\
+            #      torch.Tensor([t]*self.ent_tot).long().reshape(-1, 1)), 1)
+            # print(test.shape, test_data.shape)
             if type == 'head':
-                test_data = torch.cat((torch.arange(0, self.ent_tot).reshape(-1, 1), \
-                    torch.Tensor([r]*self.ent_tot).long().reshape(-1, 1),\
+                # test_data[:, 2] = t
+                # test_data[:, 0] = torch.arange(0, self.ent_tot)
+                test_data = torch.cat((torch.arange(0, self.ent_tot).reshape(-1, 1), torch.Tensor([r]*self.ent_tot).long().reshape(-1, 1),\
                  torch.Tensor([t]*self.ent_tot).long().reshape(-1, 1)), 1)
                 tmp = self.test_one_step(test_data.long().to(self.device)).detach().numpy()
                 tmp = sorted(tmp, key=lambda x: x[3])
@@ -44,15 +50,14 @@ class Tester(object):
 
                 
             elif type == 'tail':
-                test_data = torch.cat((torch.Tensor([h]*self.ent_tot).long().reshape(-1, 1) ,\
-                     torch.Tensor([r]*self.ent_tot).long().reshape(-1, 1),\
+                # test_data[:, 2] = torch.arange(0, self.ent_tot)
+                # test_data[:, 0] = h
+                test_data = torch.cat((torch.Tensor([h]*self.ent_tot).long().reshape(-1, 1) , torch.Tensor([r]*self.ent_tot).long().reshape(-1, 1),\
                  torch.arange(0, self.ent_tot).reshape(-1, 1)), 1)
                 tmp = self.test_one_step(test_data.long().to(self.device)).detach().numpy()
                 tmp = sorted(tmp, key=lambda x: x[3])
                 rank = self.get_rank(tmp, t, type)
-            print('mr:{:.3f}, mrr:{:.3f}, Hist@10:{:.2%}, Hist@3:{:.2%}, Hist@1:{:.2%}, {}/{}, {:.2%}'. \
-                format(tot_rank / (n + 1), tot_rank_reverse / (n + 1), Hist_10 / (n + 1), Hist_3 / (n + 1),\
-                     Hist_1 / (n + 1), n, len(self.test_data_loader), n/len(self.test_data_loader)), end='\r')
+            print('mr:{:.3f}, mrr:{:.3f}, Hist@10:{:.2%}, Hist@3:{:.2%}, Hist@1:{:.2%}, {}/{}, {:.2%}'.format(tot_rank / (n + 1), tot_rank_reverse / (n + 1), Hist_10 / (n + 1), Hist_3 / (n + 1), Hist_1 / (n + 1), n, len(self.test_data_loader), n/len(self.test_data_loader)), end='\r')
             tot_rank += rank
             tot_rank_reverse += 1.0/rank
             if rank <= 10:
@@ -68,8 +73,7 @@ class Tester(object):
         Hist_10 /= n
         Hist_3 /= n
         Hist_1 /= n
-        print('\n', type, 'mr:{:.3f}, mrr:{:.3f}, Hist@10:{:.2%}, Hist@3:{:.2%}, Hist@1:{:.2%}'.\
-            format(mean_rank, mean_rank_reverse, Hist_10, Hist_3, Hist_1))
+        print('\n', type, 'mr:{:.3f}, mrr:{:.3f}, Hist@10:{:.2%}, Hist@3:{:.2%}, Hist@1:{:.2%}'.format(mean_rank, mean_rank_reverse, Hist_10, Hist_3, Hist_1))
 
 
 

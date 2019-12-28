@@ -7,6 +7,10 @@ class datasets_param:
         'ent_tot': 14951,
         'rel_tot': 1345
     }, 'wn':{
+        'root' : 'data/wordnet-mlj12',
+        'name_list' : ['wordnet-mlj12-test.txt', 'wordnet-mlj12-train.txt', 'wordnet-mlj12-valid.txt'],
+        'ent_tot': 40943,
+        'rel_tot': 18
 
     }, 'countries_S1':{
         'root': 'data/countries_S1',

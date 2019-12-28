@@ -49,6 +49,54 @@ class TransE(nn.Module):
         return score
         
 
+class DistMult(nn.Module):
+    def __init__(self, ent_tot, rel_tot, em_dim = 50):
+        super(DistMult, self).__init__()
+        self.ent_embeddings = nn.Embedding(ent_tot, em_dim, max_norm=1)
+        self.rel_embeddings = nn.Embedding(rel_tot, em_dim)
+
+        # self.criterion = nn.Softplus()
+
+        self.init_weights()
+
+
+    def init_weights(self):
+        nn.init.xavier_uniform_(self.ent_embeddings.weight.data)
+        nn.init.xavier_uniform_(self.rel_embeddings.weight.data)
+
+    def _calc(self, h, r, t):
+        return torch.sum(h * t * r, -1)
+
+    def forward(self, batch_h, batch_r, batch_t, batch_size, batch_y=0):
+        h = self.ent_embeddings(batch_h)
+        t = self.ent_embeddings(batch_t)
+        r = self.rel_embeddings(batch_r)
+        #y = torch.from_numpy(batch_y).type(torch.FloatTensor)
+
+        score = self._calc(h, r, t)
+
+        pos_score = score[0: batch_size]
+        neg_score = score[batch_size: len(score)]
+
+        # regul = torch.mean(h ** 2) + torch.mean(t ** 2) + torch.mean(r ** 2)
+        # loss = torch.mean(self.criterion(score * y)) + self.params.lmbda * regul
+        # loss = self.criterion(pos_score, neg_score, torch.Tensor([-1]))
+        
+        return pos_score, neg_score
+    def predict(self, batch_h, batch_r, batch_t):
+        h = self.ent_embeddings(batch_h)
+        t = self.ent_embeddings(batch_t)
+        r = self.rel_embeddings(batch_r)
+        #y = torch.from_numpy(batch_y).type(torch.FloatTensor)
+
+        score = self._calc(h, r, t)
+
+        # regul = torch.mean(h ** 2) + torch.mean(t ** 2) + torch.mean(r ** 2)
+        # loss = torch.mean(self.criterion(score * y)) + self.params.lmbda * regul
+        # loss = self.criterion(pos_score, neg_score, torch.Tensor([-1]))
+        
+        return score
+
 
 if __name__=='__main__':
     model = transE(100, 100, init_embed=True)

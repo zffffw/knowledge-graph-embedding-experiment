@@ -21,6 +21,8 @@ class Trainer:
         self.model = model.to(self.device)
         self.params = params
         self.save_step = save_step
+        self.save_best_name = self.save_root + self.model_name + '.emb_' +  str(self.params.embedding_dim)\
+                 +'.lr_' + str(self.params.lr) + '.data_' + self.params.data + '.optim_' + self.params.optimizer + '.loss_' + self.params.loss + '.best.ckpt'
     
     def train_one_step(self, h, r, t):
         self.optimizer.zero_grad()
@@ -37,11 +39,10 @@ class Trainer:
         
     def save_check_point(self, epochs, isBest=False):
         if isBest:
-            torch.save(self.model.state_dict(),   self.save_root + self.model_name + '.emb_' +  str(self.params.embedding_dim)\
-                 +'.lr_' + str(self.params.lr) + '.data_' + self.params.data + '.optim_' + self.params.optimizer + '.best.ckpt')
+            torch.save(self.model.state_dict(),   self.save_best_name)
         else:
             torch.save(self.model.state_dict(),   self.save_root + self.model_name + '.emb_' +  str(self.params.embedding_dim)\
-                 +'.lr_' + str(self.params.lr) + '.data_' + self.params.data + '.optim_' + self.params.optimizer + '.epoch_' + str(epochs) + '.ckpt')
+                 +'.lr_' + str(self.params.lr) + '.data_' + self.params.data + '.optim_' + self.params.optimizer + '.loss_' + self.params.loss + '.epoch_' + str(epochs) + '.ckpt')
         
     
     def valid_model(self, epochs, train_loss):

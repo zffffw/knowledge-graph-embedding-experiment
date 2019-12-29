@@ -79,10 +79,10 @@ class adv_TransE(nn.Module):
         neg_score = score[batch_size:]
         return pos_score, neg_score
     def predict(self, h, r, t):
-        batch_h = self.ent_embeddings(batch_h)
-        batch_r = self.Vr(batch_r)
-        batch_t = self.ent_embeddings(batch_t)
-        score = self._calc(batch_h, batch_r, batch_t)
+        h = self.ent_embeddings(h)
+        r = self.Vr(r)
+        t = self.ent_embeddings(t)
+        score = self._calc(h, r, t)
         return score
 
 
@@ -164,10 +164,10 @@ class adv_DistMult(nn.Module):
         neg_score = score[batch_size:]
         return pos_score, neg_score
     def predict(self, h, r, t):
-        batch_h = self.ent_embeddings(batch_h)
-        batch_r = self.Vr(batch_r)
-        batch_t = self.ent_embeddings(batch_t)
-        score = self._calc(batch_h, batch_r, batch_t)
+        h = self.ent_embeddings(h)
+        r = self.Vr(r)
+        t = self.ent_embeddings(t)
+        score = self._calc(h, r, t)
         return score
     
 

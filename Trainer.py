@@ -17,7 +17,7 @@ class Trainer:
         self.losses = []
         self.times = times
         self.loss = loss.to(self.device)
-        self.optimizer = optimizer
+        self.optimizer = optimizer.to(self.device)
         self.model = model.to(self.device)
         self.params = params
         self.save_step = save_step

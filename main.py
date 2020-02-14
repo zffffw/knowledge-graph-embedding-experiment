@@ -19,13 +19,13 @@ parser.add_argument("--batch_size", type=int, default=8,
                     help="Batch size")
 parser.add_argument("--check_step", type=int, default=50,
                     help="Interval of epochs to valid a checkpoint of the model?")
-parser.add_argument("--save_step", type=int, default=50,
+parser.add_argument("--save_step", type=int, default=10000,
                     help="Interval of epochs to save a checkpoint of the model?")
 parser.add_argument("--eval_step", type=int, default=10,
                     help="Interval of epochs to evaluate the model?")
 parser.add_argument('--eval_mode', type=str, default="head",
                     help='Evaluate on head and/or tail prediction?')
-parser.add_argument("--sample_size", type=int, default=1,
+parser.add_argument("--negative_sample_size", type=int, default=1,
                     help="Number of negative samples to compare to for MRR/MR/Hit@10")
 parser.add_argument("--patience", type=int, default=10,
                     help="Early stopping patience")
@@ -57,7 +57,7 @@ parser.add_argument('--test_flag', action='store_true',
 parser.add_argument('--train_flag', action='store_true',
                     help='train ?')
 params = parser.parse_args()
-
+print(params)
 if params.debug:
     g = graph(datasets_param.d[params.data]['root'], 'test')
     g.create_graph()
@@ -92,10 +92,12 @@ else:
     '''
 
 
-    train_data_loader = get_data_loader(params.data, params.batch_size, 'train', sample_size=params.sample_size)
-    valid_data_loader = get_data_loader(params.data, params.batch_size, 'valid', sample_size=params.sample_size)
-    trainer = Trainer(params, params.model, train_data_loader, valid_data_loader, model, \
-                loss, opt, use_GPU=params.cuda, check_step=params.check_step, times=params.times, save_step=params.save_step) 
+    train_data_loader = get_data_loader(params.data, params.batch_size, 'train', sample_size=params.negative_sample_size)
+    valid_data_loader = get_data_loader(params.data, params.batch_size, 'valid', sample_size=params.negative_sample_size)
+    ent_tot, rel_tot = dataset_param(params.data)
+    trainer = Trainer(params, ent_tot, rel_tot, params.model, params.loss, train_data_loader, valid_data_loader, model, \
+                loss, opt, params.batch_size, params.negative_sample_size, use_GPU=params.cuda, \
+                     check_step=params.check_step, times=params.times, save_step=params.save_step) 
     if params.train_flag:
         print('[begin training]')
         trainer.run()
@@ -105,39 +107,43 @@ else:
     '''
     if params.test_flag:
         print('[begin testing]')
+        
+        
         model_load_name = trainer.save_best_name
         if torch.cuda.is_available():
             model.load_state_dict(torch.load(model_load_name))
         else:
             model.load_state_dict(torch.load(model_load_name, map_location=torch.device('cpu')))
-        test_data_loader = get_data_loader(params.data, 1, 'test', sample_flag=False)
-        test_data_loader_1to1 = get_data_loader(params.data, 1, '1-1', sample_flag=False)
-        test_data_loader_1toN = get_data_loader(params.data, 1, '1-N', sample_flag=False)
-        test_data_loader_Nto1 = get_data_loader(params.data, 1, 'N-1', sample_flag=False)
-        test_data_loader_NtoN = get_data_loader(params.data, 1, 'N-N', sample_flag=False)
-        ent_tot, rel_tot = dataset_param(params.data)
-        tester = Tester(params, ent_tot, rel_tot, model, test_data_loader)
-        tester_1to1 = Tester(params, ent_tot, rel_tot, model, test_data_loader_1to1)
-        tester_1toN = Tester(params, ent_tot, rel_tot, model, test_data_loader_1toN)
-        tester_Nto1 = Tester(params, ent_tot, rel_tot, model, test_data_loader_Nto1)
-        tester_NtoN = Tester(params, ent_tot, rel_tot, model, test_data_loader_NtoN)
-        print('run all head.....')
-        tester.test_run(type='head')
-        print('run all tail.....')
-        tester.test_run(type='tail')
-        print('run 1-1 head.....')
-        tester_1to1.test_run(type='head')
-        print('run 1-1 tail.....')
-        tester_1to1.test_run(type='tail')
-        print('run 1-N head.....')
-        tester_1toN.test_run(type='head')
-        print('run 1-N tail.....')
-        tester_1toN.test_run(type='tail')
-        print('run N-1 head.....')
-        tester_Nto1.test_run(type='head')
-        print('run N-1 tail.....')
-        tester_Nto1.test_run(type='tail')
-        print('run N-N head.....')
-        tester_NtoN.test_run(type='head')
-        print('run N-N tail.....')
-        tester_NtoN.test_run(type='tail')
+        ttype = ['test', '1-1', '1-N', 'N-1', 'N-N']
+        for tt in ttype:
+            test_data_loader = get_data_loader(params.data, 1, tt, sample_flag=False)
+            # test_data_loader_1to1 = get_data_loader(params.data, 1, '1-1', sample_flag=False)
+            # test_data_loader_1toN = get_data_loader(params.data, 1, '1-N', sample_flag=False)
+            # test_data_loader_Nto1 = get_data_loader(params.data, 1, 'N-1', sample_flag=False)
+            # test_data_loader_NtoN = get_data_loader(params.data, 1, 'N-N', sample_flag=False)
+            ent_tot, rel_tot = dataset_param(params.data)
+            tester = Tester(params, ent_tot, rel_tot, model, test_data_loader)
+            # tester_1to1 = Tester(params, ent_tot, rel_tot, model, test_data_loader_1to1)
+            # tester_1toN = Tester(params, ent_tot, rel_tot, model, test_data_loader_1toN)
+            # tester_Nto1 = Tester(params, ent_tot, rel_tot, model, test_data_loader_Nto1)
+            # tester_NtoN = Tester(params, ent_tot, rel_tot, model, test_data_loader_NtoN)
+            print('run {} head.....'.format(tt))
+            tester.test_run(type='head')
+            print('run {} tail.....'.format(tt))
+            tester.test_run(type='tail')
+        # print('run 1-1 head.....')
+        # tester_1to1.test_run(type='head')
+        # print('run 1-1 tail.....')
+        # tester_1to1.test_run(type='tail')
+        # print('run 1-N head.....')
+        # tester_1toN.test_run(type='head')
+        # print('run 1-N tail.....')
+        # tester_1toN.test_run(type='tail')
+        # print('run N-1 head.....')
+        # tester_Nto1.test_run(type='head')
+        # print('run N-1 tail.....')
+        # tester_Nto1.test_run(type='tail')
+        # print('run N-N head.....')
+        # tester_NtoN.test_run(type='head')
+        # print('run N-N tail.....')
+        # tester_NtoN.test_run(type='tail')

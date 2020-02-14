@@ -45,31 +45,33 @@ class kge_data_loader(Dataset):
 
     def __getitem__(self, idx):
         r = int(self.data_frame[idx][1])
-        if self.sample_flag:
-            h, r, t, h_n, r_n, t_n = self.sample_neg(idx)
-            return {'en1':h, 'en2':t, 'rel':r, 'en1_n':h_n, 'en2_n':t_n, 'rel_n':r_n}
-        else:
-            h = int(self.data_frame[idx][0])
-            t = int(self.data_frame[idx][2])
-            return {'en1':h, 'en2':t, 'rel':r}
+        h, r, t, h_n, r_n, t_n = self.sample_neg(idx)
+        try:
+            return {'en1':h, 'en2':t, 'rel':r, 'en1_n':h_n, 'en2_n':t_n, 'rel_n':r_n, 'en1_neighbour':self.data_frame[idx][3]}
+        except:
+            return {'en1':h, 'en2':t, 'rel':r, 'en1_n':h_n, 'en2_n':t_n, 'rel_n':r_n, 'en1_neighbour':[]}
         
 
 
 
 
 if __name__=='__main__':
-    train_loader = kge_data_loader('FB15k', 'train2index.txt', ent_tot=14000, sample_flag = True, sample_size=50)
-    dataset_loader = DataLoader(train_loader, batch_size=8, shuffle=False)
+    train_loader = kge_data_loader('FB15k-237', 'train.txt', ent_tot=14000, sample_flag = True, sample_size=0)
+    dataset_loader = DataLoader(train_loader, batch_size=5, shuffle=False)
     k = 0
     for data_val in dataset_loader:
         h, r, t, h_n, r_n, t_n = data_val['en1'], data_val['rel'], data_val['en2'], data_val['en1_n'], data_val['rel_n'],data_val['en2_n']
-        k += 8
+        # k += 8
+        print(h, r, t, h_n, r_n, t_n)
+        print(len(data_val['en1_neighbour']))
+        break
         
-        for i in range(len(h_n)):
-            h = torch.cat((h, h_n[i]), 0)
-            t = torch.cat((t, t_n[i]), 0)
-            r = torch.cat((r, r_n[i]), 0)
-        print(k, h.shape,  end='\r')
+        # for i in range(len(h_n)):
+        #     h = torch.cat((h, h_n[i]), 0)
+        #     t = torch.cat((t, t_n[i]), 0)
+        #     r = torch.cat((r, r_n[i]), 0)
+
+        # print(k, h.shape,  end='\r')
     
         
 

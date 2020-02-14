@@ -33,9 +33,9 @@ class Tester(object):
 
     
     def test_one_step(self, test_data):
-        res = self.model.predict(test_data[:, 0], test_data[:, 1], test_data[:, 2]).reshape(-1, 1)
-        # print(res.shape, test_data.shape)
-        return torch.cat((test_data.float(), res), 1)
+        res = self.model.predict(test_data[:, 0], test_data[:, 1], test_data[:, 2])
+        # return torch.cat((test_data.float(), res), 1)
+        return res
     
     def get_rank(self, res, target, type='head'):
         raw_rank = 0
@@ -77,8 +77,9 @@ class Tester(object):
         for n, data_val in enumerate(self.test_data_loader):
             h, r, t = data_val['en1'], data_val['rel'], data_val['en2']
             if type == 'head':
-                test_data = torch.cat((torch.arange(0, self.ent_tot).reshape(-1, 1), torch.Tensor([r]*self.ent_tot).long().reshape(-1, 1),\
-                 torch.Tensor([t]*self.ent_tot).long().reshape(-1, 1)), 1)
+                # test_data = torch.cat((torch.arange(0, self.ent_tot).reshape(-1, 1), torch.Tensor([r]*self.ent_tot).long().reshape(-1, 1),\
+                #  torch.Tensor([t]*self.ent_tot).long().reshape(-1, 1)), 1)
+                print(h, r, t)
                 tmp = self.test_one_step(test_data.long().to(self.device)).detach().numpy()
                 tmp = sorted(tmp, key=lambda x: x[3])
                 raw_rank, fil_rank = self.get_rank(tmp, h, type)

@@ -6,6 +6,11 @@ class datasets_param:
         'name_list': ['freebase_mtr100_mte100-test.txt', 'freebase_mtr100_mte100-train.txt', 'freebase_mtr100_mte100-valid.txt'],
         'ent_tot': 14951,
         'rel_tot': 1345
+    }, 'FB15k-237':{
+        'root': 'data/FB15k-237',
+        'name_list': ['fb237-test.txt', 'fb237-train.txt', 'fb237-valid.txt'],
+        'ent_tot': 14951,
+        'rel_tot': 237
     }, 'wn':{
         'root' : 'data/wordnet-mlj12',
         'name_list' : ['wordnet-mlj12-test.txt', 'wordnet-mlj12-train.txt', 'wordnet-mlj12-valid.txt'],

@@ -1,7 +1,8 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
+import numpy as np
+import codecs
 class TransE(nn.Module):
     def __init__(self, ent_tot, rel_tot, em_dim = 100, p_norm = 2, norm_flag = False):
         super(TransE, self).__init__()
@@ -9,8 +10,8 @@ class TransE(nn.Module):
         self.dim = em_dim
         self.p_norm = p_norm
         self.norm_flag = norm_flag
-        self.ent_embeddings = nn.Embedding(ent_tot, em_dim, max_norm = 1)
-        self.rel_embeddings = nn.Embedding(rel_tot, em_dim)
+        self.ent_embeddings = nn.Embedding(ent_tot, em_dim, padding_idx=0)
+        self.rel_embeddings = nn.Embedding(rel_tot, em_dim, padding_idx=0)
 
         self.init_weights()
         
@@ -64,8 +65,8 @@ class adv_TransE(nn.Module):
     def _calc(self, batch_h, batch_r, batch_t):
         # yh = torch.sigmoid(torch.mm(self.W, batch_h.T).T)
         # yt = torch.sigmoid(torch.mm(self.W, batch_t.T).T)
-        yh = torch.tanh(torch.mm(self.W, batch_h.T).T)
-        yt = torch.tanh(torch.mm(self.W, batch_t.T).T)
+        yh = batch_h
+        yt = batch_t
         # yh = torch.mm(self.W, batch_h.T).T
         # yt = torch.mm(self.W, batch_t.T).T
         # print(yh.shape, yt.shape, batch_r.shape)
@@ -90,8 +91,8 @@ class adv_TransE(nn.Module):
 class DistMult(nn.Module):
     def __init__(self, ent_tot, rel_tot, em_dim = 50):
         super(DistMult, self).__init__()
-        self.ent_embeddings = nn.Embedding(ent_tot, em_dim, max_norm=1)
-        self.rel_embeddings = nn.Embedding(rel_tot, em_dim)
+        self.ent_embeddings = nn.Embedding(ent_tot, em_dim, padding_idx=0)
+        self.rel_embeddings = nn.Embedding(rel_tot, em_dim, padding_idx=0)
 
         # self.criterion = nn.Softplus()
 
@@ -136,25 +137,38 @@ class DistMult(nn.Module):
         return score
 
 class adv_DistMult(nn.Module):
-    def __init__(self, ent_tot, rel_tot, em_dim = 100):
+    def __init__(self, ent_tot, rel_tot, em_dim = 100, dropout=False, dropout_p = 0.0):
         super(adv_DistMult, self).__init__()
-        self.ent_embeddings = nn.Embedding(ent_tot, em_dim, max_norm = 1)
-        self.Vr = nn.Embedding(rel_tot, em_dim)
-        self.W = nn.Parameter(torch.zeros((em_dim, em_dim)), requires_grad=True)
+        self.ent_embeddings = nn.Embedding(ent_tot, em_dim, padding_idx=0)
+        self.Vr = nn.Embedding(rel_tot, em_dim, padding_idx=0)
+        #self.W = nn.Parameter(torch.zeros((em_dim, em_dim)), requires_grad=True)
+        self.W = nn.Parameter(torch.from_numpy(np.eye(em_dim)), requires_grad=False)
         self.init_weights()
+        if dropout:
+            self.dropout = nn.Dropout(dropout_p)
     def init_weights(self):
         nn.init.xavier_uniform_(self.ent_embeddings.weight.data)
         nn.init.xavier_uniform_(self.Vr.weight.data)
-        nn.init.xavier_uniform_(self.W)
+        #nn.init.xavier_uniform_(self.W)
     def _calc(self, batch_h, batch_r, batch_t):
         # yh = torch.sigmoid(torch.mm(self.W, batch_h.T).T)
         # yt = torch.sigmoid(torch.mm(self.W, batch_t.T).T)
-        yh = torch.tanh(torch.mm(self.W, batch_h.T).T)
-        yt = torch.tanh(torch.mm(self.W, batch_t.T).T)
+        #yh = torch.tanh(torch.mm(self.W, batch_h.T).T)
+        #yt = torch.tanh(torch.mm(self.W, batch_t.T).T)
+
+        #yh = torch.mm(self.W, batch_h.T).T
+        #yt = torch.mm(self.W, batch_t.T).T
+        #yh = batch_h
+        #yt = batch_t
+        yh = torch.sigmoid(batch_h)
+        yt = torch.sigmoid(batch_t)
+
+
         # yh = torch.mm(self.W, batch_h.T).T
         # yt = torch.mm(self.W, batch_t.T).T
         # print(yh.shape, yt.shape, batch_r.shape)
-        return torch.sum(yh * yt * batch_r, -1)
+        hidden = torch.sum(yh * batch_r * yt, -1)
+        return 
     def forward(self, batch_h, batch_r, batch_t, batch_size):
         batch_h = self.ent_embeddings(batch_h)
         batch_r = self.Vr(batch_r)
@@ -170,7 +184,31 @@ class adv_DistMult(nn.Module):
         score = self._calc(h, r, t)
         return score
     
+class ConvE(nn.Module):
+    def __init__(self, ent_tot, rel_tot, em_dim = 100, dropout=False, dropout_p = 0.0)
+        super(ConvE, self).__init__()
+        self.ent_embeddings = nn.Embedding(ent_tot, em_dim, padding_idx=0)
+        self.rel_embeddings = nn.Embedding(rel_tot, em_dim, padding_idx=0)
 
+        self.init_weights()
+
+
+    def init_weights(self):
+        nn.init.xavier_uniform_(self.ent_embeddings.weight.data)
+        nn.init.xavier_uniform_(self.rel_embeddings.weight.data)
+
+class ComplEx(nn.Module):
+    def __init__(self, ent_tot, rel_tot, em_dim = 100, input_drop):
+        super(ComplEx, self).__init__()
+        self.emb_e_real = torch.nn.Embedding(ent_tot, em_dim, padding_idx=0)
+        self.emb_e_img = torch.nn.Embedding(ent_tot, em_dim, padding_idx=0)
+        self.emb_rel_real = torch.nn.Embedding(rel_tot, em_dim, padding_idx=0)
+        self.emb_rel_img = torch.nn.Embedding(rel_tot, em_dim, padding_idx=0)
+        self.inp_drop = torch.nn.Dropout(input_drop)
+
+
+
+    
 
 if __name__=='__main__':
     model = adv_TransE(5, 5, 3)

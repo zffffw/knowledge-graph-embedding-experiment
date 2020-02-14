@@ -92,9 +92,9 @@ class Tester(object):
                 tmp = self.test_one_step(test_data.long().to(self.device)).detach().numpy()
                 tmp = sorted(tmp, key=lambda x: x[3])
                 raw_rank, fil_rank = self.get_rank(tmp, t, type)
-            print('mr:{:.3f}, mrr:{:.3f}, raw_Hist@10:{:.2%}, raw_Hist@3:{:.2%}, raw_Hist@1:{:.2%}, filter_Hist@10:{:.2%}, filter_Hist@3:{:.2%}, filter_Hist@1:{:.2%}, {}/{}, {:.2%}'.\
+            print('mr:{:.3f}, mrr:{:.3f}, raw_Hist@10:{:.2%}, raw_Hist@3:{:.2%}, raw_Hist@1:{:.2%}, mr:{:.3f}, mrr:{:.3f}, filter_Hist@10:{:.2%}, filter_Hist@3:{:.2%}, filter_Hist@1:{:.2%}, {}/{}, {:.2%}'.\
                      format(tot_rank / (n + 1), tot_rank_reverse / (n + 1), Hist_10 / (n + 1), Hist_3 / (n + 1), Hist_1 / (n + 1), \
-                         fil_Hist_10 / (n + 1), fil_Hist_3 / (n + 1), fil_Hist_1 / (n + 1),\
+                         fil_tot_rank / (n + 1), fil_tot_rank_reverse / (n + 1),  fil_Hist_10 / (n + 1), fil_Hist_3 / (n + 1), fil_Hist_1 / (n + 1),\
                           n, len(self.test_data_loader), n/len(self.test_data_loader)), end='\r')
             tot_rank += raw_rank
             tot_rank_reverse += 1.0/raw_rank

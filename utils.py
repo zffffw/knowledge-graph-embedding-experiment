@@ -13,14 +13,14 @@ def dataset_param(dataset_name):
     return datasets_param.d[dataset_name]['ent_tot'], datasets_param.d[dataset_name]['rel_tot']
 
 
-def get_model(model_name, dataset_name, em_dim, p_norm):
+def get_model(model_name, dataset_name, em_dim, p_norm, sigmoid_flag):
     print('[getting model {}]'.format(model_name))
     ent_tot, rel_tot = dataset_param(dataset_name)
     print('# ent_tot:{}, rel_tot:{}, em_dim:{}'.format(ent_tot, rel_tot, em_dim))
     if model_name == 'TransE':
-        return TransE(ent_tot=ent_tot, rel_tot=rel_tot, em_dim=em_dim, p_norm=p_norm)
+        return TransE(ent_tot=ent_tot, rel_tot=rel_tot, em_dim=em_dim, p_norm=p_norm, sigmoid_flag=sigmoid_flag)
     elif model_name == 'DistMult':
-        return DistMult(ent_tot=ent_tot, rel_tot=rel_tot, em_dim=em_dim)
+        return DistMult(ent_tot=ent_tot, rel_tot=rel_tot, em_dim=em_dim, sigmoid_flag=sigmoid_flag)
     elif model_name == 'adv_TransE':
         return adv_TransE(ent_tot=ent_tot, rel_tot=rel_tot, em_dim=em_dim)
     elif model_name == 'adv_DistMult':

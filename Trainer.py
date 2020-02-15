@@ -31,11 +31,12 @@ class Trainer:
         self.save_best_name = self.save_root + self.model_name + '.emb_' +  str(self.params.embedding_dim)\
                  +'.lr_' + str(self.params.lr) + '.data_' + self.params.data + '.optim_' + self.params.optimizer + '.loss_' + self.params.loss + '.best.ckpt'
 
-    def calc_loss(self, t, p_score, n_score, label=[]):
+    def calc_loss(self, t, p_score, n_score, size, label=[]):
         # print(p_score.shape, n_score.shape, t.shape)
         if self.loss_name == 'margin':
-            p_t = t[:self.batch_size].reshape(-1, 1)
-            n_t = t[self.batch_size:].reshape(-1, 1)
+            p_t = t[:size].reshape(-1, 1)
+            n_t = t[size:].reshape(-1, 1)
+            # print(n_t, p_t)
             p_score_s = torch.gather(p_score, dim=1, index=p_t)
             n_score_s = torch.gather(n_score, dim=1, index=n_t)
             # print(p_score_s.shape, n_score_s.shape)
@@ -49,13 +50,15 @@ class Trainer:
     def train_one_step(self, h, r, t, label=[]):
         self.optimizer.zero_grad()
         # print(h.shape, r.shape, t.shape)
-        p_score, n_score = self.model(h, r, t, self.batch_size)
+        size = int(h.shape[0] / (1 + self.negative_size))
+        # print(size)
+        p_score, n_score = self.model(h, r, t, size)
         # print(p_score.shape, n_score.shape)
         # print(t.shape, h.shape)
         # p_score, n_score = p_score.to(self.device), n_score.to(self.device)
         # print(p_score.shape, n_score.shape)
         # print(label)
-        loss_ = self.calc_loss(t, p_score, n_score, label)
+        loss_ = self.calc_loss(t, p_score, n_score, size, label)
         loss_.backward()
         self.optimizer.step()
         return loss_.item()
@@ -86,9 +89,10 @@ class Trainer:
                 r = torch.cat((r, r_n[i]), 0)
             label = self.label_transform(label)
             batch_h, batch_t, batch_r = h.to(self.device), t.to(self.device), r.to(self.device)
-            p_score, n_score = self.model(batch_h, batch_r, batch_t, self.batch_size)
+            size = int(h.shape[0] / (1 + self.negative_size))
+            p_score, n_score = self.model(batch_h, batch_r, batch_t, size)
 
-            loss_ = self.calc_loss(batch_t, p_score, n_score, label)
+            loss_ = self.calc_loss(batch_t, p_score, n_score, size, label)
             valid_loss += loss_.item()
         fw1.write('epoch:{}, valid loss:{:.2f}, train loss:{:.2f}, timestep:{}\n'.format(epochs, valid_loss, train_loss, ts))
         if self.best_valid_loss == '' or self.best_valid_loss > valid_loss:
@@ -118,6 +122,7 @@ class Trainer:
     def run(self):
         for epoch in range(self.times):
             cur_loss = 0
+            self.model.train()
             for n, data_val in enumerate(self.train_data_loader):
                 h, r, t, h_n, r_n, t_n, label = data_val['en1'], data_val['rel'], data_val['en2'], data_val['en1_n'], data_val['rel_n'],data_val['en2_n'], data_val['en1_neighbour']
                 for i in range(len(h_n)):

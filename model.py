@@ -4,7 +4,7 @@ import torch.nn.functional as F
 import numpy as np
 import codecs
 class TransE(nn.Module):
-    def __init__(self, ent_tot, rel_tot, em_dim = 100, p_norm = 2, norm_flag = False):
+    def __init__(self, ent_tot, rel_tot, em_dim = 100, p_norm = 2, norm_flag = False, sigmoid_flag = False):
         super(TransE, self).__init__()
         self.name = 'TransE'
         self.dim = em_dim
@@ -14,6 +14,7 @@ class TransE(nn.Module):
         self.norm_flag = norm_flag
         self.ent_embeddings = nn.Embedding(ent_tot, em_dim, padding_idx=0)
         self.rel_embeddings = nn.Embedding(rel_tot, em_dim, padding_idx=0)
+        self.sigmoid_flag = sigmoid_flag
 
         self.init_weights()
         
@@ -23,7 +24,7 @@ class TransE(nn.Module):
         
 
 
-    def _calc(self, h, r, t):
+    def _calc(self, h, r):
         '''
             calculate ||h + r - t||_n 
         '''
@@ -35,40 +36,40 @@ class TransE(nn.Module):
         # print('emb_hr:{}'.format(emb_hr.shape))
         # print('emb_c:{}'.format(emb_c.shape))
         score = torch.norm(emb_hr - emb_c, self.p_norm, -1)
-        print(score.shape)
-        score = torch.sigmoid(score)
-        print(score.shape)
+        # print(score.shape)
+        if self.sigmoid_flag:
+            score = torch.sigmoid(score)
+        # print(score.shape)
         return score
 
     def forward(self, h, r, t, batch_size):  
         batch_h = self.ent_embeddings(h)
         batch_r = self.rel_embeddings(r)
         batch_t = self.ent_embeddings(t)
-        score = self._calc(batch_h, batch_r, batch_t) 
+        score = self._calc(batch_h, batch_r) 
         # print(score.shape)  
         pos_score = score[0: batch_size]
         neg_score = score[batch_size:]
         # print(pos_score.shape, neg_score.shape)
         return pos_score, neg_score    
 
-    def predict(self, h, r, t):
+    def predict(self, h, r):
         batch_h = self.ent_embeddings(h)
         batch_r = self.rel_embeddings(r)
-        batch_t = self.ent_embeddings(t)
-        score = self._calc(batch_h, batch_r, batch_t)       
+        score = self._calc(batch_h, batch_r)       
         return score
 
 
 
 
 class DistMult(nn.Module):
-    def __init__(self, ent_tot, rel_tot, em_dim = 50):
+    def __init__(self, ent_tot, rel_tot, em_dim = 50, sigmoid_flag=True):
         super(DistMult, self).__init__()
         self.ent_embeddings = nn.Embedding(ent_tot, em_dim, padding_idx=0)
         self.rel_embeddings = nn.Embedding(rel_tot, em_dim, padding_idx=0)
 
         # self.criterion = nn.Softplus()
-
+        self.sigmoid_flag = sigmoid_flag
         self.init_weights()
 
 
@@ -76,16 +77,21 @@ class DistMult(nn.Module):
         nn.init.xavier_uniform_(self.ent_embeddings.weight.data)
         nn.init.xavier_uniform_(self.rel_embeddings.weight.data)
 
-    def _calc(self, h, r, t):
-        return torch.sum(h * t * r, -1)
+    def _calc(self, h, r):
+        emb_hr = h*r
+        # print('111', emb_hr.shape, self.ent_embeddings.weight.transpose(1, 0).shape)
+        pred = torch.mm(emb_hr, self.ent_embeddings.weight.transpose(1, 0))
+        if self.sigmoid_flag:
+            score = torch.sigmoid(pred)
+        return score
 
-    def forward(self, batch_h, batch_r, batch_t, batch_size, batch_y=0):
+    def forward(self, batch_h, batch_r, batch_t, batch_size):
         h = self.ent_embeddings(batch_h)
-        t = self.ent_embeddings(batch_t)
         r = self.rel_embeddings(batch_r)
+        # t = self.ent_embeddings(batch_t)
         #y = torch.from_numpy(batch_y).type(torch.FloatTensor)
 
-        score = self._calc(h, r, t)
+        score = self._calc(h, r)
 
         pos_score = score[0: batch_size]
         neg_score = score[batch_size: len(score)]
@@ -95,13 +101,13 @@ class DistMult(nn.Module):
         # loss = self.criterion(pos_score, neg_score, torch.Tensor([-1]))
         
         return pos_score, neg_score
-    def predict(self, batch_h, batch_r, batch_t):
+    def predict(self, batch_h, batch_r):
         h = self.ent_embeddings(batch_h)
-        t = self.ent_embeddings(batch_t)
+        # t = self.ent_embeddings(batch_t)
         r = self.rel_embeddings(batch_r)
         #y = torch.from_numpy(batch_y).type(torch.FloatTensor)
 
-        score = self._calc(h, r, t)
+        score = self._calc(h, r)
 
         # regul = torch.mean(h ** 2) + torch.mean(t ** 2) + torch.mean(r ** 2)
         # loss = torch.mean(self.criterion(score * y)) + self.params.lmbda * regul
@@ -223,14 +229,14 @@ class adv_DistMult(nn.Module):
 '''
 
 if __name__=='__main__':
-    model = TransE(10, 10, 3)
+    model = DistMult(10, 10, 3)
     # print(model.W)
     # print(model.ent_embeddings(torch.LongTensor([1])))
     h = torch.LongTensor([1, 2, 3])
     r = torch.LongTensor([1, 3, 3])
     t = torch.LongTensor([1, 2, 3])
-    a, b = model(h, r, t, 1)
-    print(a.shape, b.shape)
+    a, b = model(h, r, t, 2)
+    # print(a.shape, b.shape)
     # a = model(h, r, t)
 
 

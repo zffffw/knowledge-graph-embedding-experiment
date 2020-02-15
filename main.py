@@ -56,6 +56,8 @@ parser.add_argument('--test_flag', action='store_true',
                     help='test ?')
 parser.add_argument('--train_flag', action='store_true',
                     help='train ?')
+parser.add_argument('--sigmoid_flag', action='store_true',
+                    help='use sigmoid ?')
 params = parser.parse_args()
 print(params)
 if params.debug:
@@ -76,7 +78,7 @@ else:
 
     device = 'cuda' if params.cuda else 'cpu'
 
-    model = get_model(params.model, params.data, params.embedding_dim, params.p_norm).to(device)
+    model = get_model(params.model, params.data, params.embedding_dim, params.p_norm, params.sigmoid_flag).to(device)
     loss = get_loss(params.loss, params.margin)
     if params.optimizer == 'SGD':
         opt = optim.SGD(model.parameters(), params.lr, params.momentum)
@@ -116,7 +118,11 @@ else:
             model.load_state_dict(torch.load(model_load_name, map_location=torch.device('cpu')))
         ttype = ['test', '1-1', '1-N', 'N-1', 'N-N']
         for tt in ttype:
-            test_data_loader = get_data_loader(params.data, 1, tt, sample_flag=False)
+            try:
+                test_data_loader = get_data_loader(params.data, 3, tt, sample_size=0)
+            except:
+                print('no test data {}...'.format(tt))
+                break
             # test_data_loader_1to1 = get_data_loader(params.data, 1, '1-1', sample_flag=False)
             # test_data_loader_1toN = get_data_loader(params.data, 1, '1-N', sample_flag=False)
             # test_data_loader_Nto1 = get_data_loader(params.data, 1, 'N-1', sample_flag=False)
@@ -129,8 +135,8 @@ else:
             # tester_NtoN = Tester(params, ent_tot, rel_tot, model, test_data_loader_NtoN)
             print('run {} head.....'.format(tt))
             tester.test_run(type='head')
-            print('run {} tail.....'.format(tt))
-            tester.test_run(type='tail')
+            # print('run {} tail.....'.format(tt))
+            # tester.test_run(type='tail')
         # print('run 1-1 head.....')
         # tester_1to1.test_run(type='head')
         # print('run 1-1 tail.....')

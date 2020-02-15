@@ -80,9 +80,9 @@ class DistMult(nn.Module):
     def _calc(self, h, r):
         emb_hr = h*r
         # print('111', emb_hr.shape, self.ent_embeddings.weight.transpose(1, 0).shape)
-        pred = torch.mm(emb_hr, self.ent_embeddings.weight.transpose(1, 0))
+        score = torch.mm(emb_hr, self.ent_embeddings.weight.transpose(1, 0))
         if self.sigmoid_flag:
-            score = torch.sigmoid(pred)
+            score = torch.sigmoid(score)
         return score
 
     def forward(self, batch_h, batch_r, batch_t, batch_size):
@@ -94,7 +94,7 @@ class DistMult(nn.Module):
         score = self._calc(h, r)
 
         pos_score = score[0: batch_size]
-        neg_score = score[batch_size: len(score)]
+        neg_score = score[batch_size: ]
 
         # regul = torch.mean(h ** 2) + torch.mean(t ** 2) + torch.mean(r ** 2)
         # loss = torch.mean(self.criterion(score * y)) + self.params.lmbda * regul
@@ -131,13 +131,49 @@ class ConvE(nn.Module):
         nn.init.xavier_uniform_(self.rel_embeddings.weight.data)
 
 class ComplEx(nn.Module):
-    def __init__(self, ent_tot, rel_tot, em_dim = 100, input_drop=0.2):
+    def __init__(self, ent_tot, rel_tot, em_dim = 100, input_drop=0.2, sigmoid_flag=True):
         super(ComplEx, self).__init__()
         self.emb_e_real = torch.nn.Embedding(ent_tot, em_dim, padding_idx=0)
         self.emb_e_img = torch.nn.Embedding(ent_tot, em_dim, padding_idx=0)
         self.emb_rel_real = torch.nn.Embedding(rel_tot, em_dim, padding_idx=0)
         self.emb_rel_img = torch.nn.Embedding(rel_tot, em_dim, padding_idx=0)
         self.inp_drop = torch.nn.Dropout(input_drop)
+        self.sigmoid_flag = sigmoid_flag
+    def init(self):
+        nn.init.xavier_normal_(self.emb_e_real.weight.data)
+        nn.init.xavier_normal_(self.emb_e_img.weight.data)
+        nn.init.xavier_normal_(self.emb_rel_real.weight.data)
+        nn.init.xavier_normal_(self.emb_rel_img.weight.data)
+    
+    def _calc(self, h, r):
+        h_embedding_real = self.emb_e_real(h)
+        r_embedding_real = self.emb_rel_real(r)
+        h_embedding_img = self.emb_e_img(h)
+        r_embedding_img = self.emb_rel_img(r)
+
+        h_embedding_real = self.inp_drop(h_embedding_real)
+        r_embedding_real = self.inp_drop(r_embedding_real)
+        h_embedding_img = self.inp_drop(h_embedding_img)
+        r_embedding_img = self.inp_drop(r_embedding_img)
+        # print(h_embedding_real.shape, r_embedding_real.shape)
+        realrealreal = torch.mm(h_embedding_real*r_embedding_real, self.emb_e_real.weight.transpose(1,0))
+        realimgimg = torch.mm(h_embedding_real*r_embedding_img, self.emb_e_img.weight.transpose(1,0))
+        imgrealimg = torch.mm(h_embedding_img*r_embedding_real, self.emb_e_img.weight.transpose(1,0))
+        imgimgreal = torch.mm(h_embedding_img*r_embedding_img, self.emb_e_real.weight.transpose(1,0))
+        score = realrealreal + realimgimg + imgrealimg - imgimgreal
+        if self.sigmoid_flag:
+            score = torch.sigmoid(score)
+        return score
+    def forward(self, batch_h, batch_r, batch_t, batch_size):
+        score = self._calc(batch_h, batch_r)
+        pos_score = score[0: batch_size]
+        neg_score = score[batch_size: ]
+        return pos_score, neg_score
+    def predict(self, batch_h, batch_r):
+        score = self._calc(batch_h, batch_r)
+        return score
+
+
 
 '''
    # delete

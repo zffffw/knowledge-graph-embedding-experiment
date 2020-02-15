@@ -21,12 +21,12 @@ def get_model(model_name, dataset_name, em_dim, p_norm, sigmoid_flag):
         return TransE(ent_tot=ent_tot, rel_tot=rel_tot, em_dim=em_dim, p_norm=p_norm, sigmoid_flag=sigmoid_flag)
     elif model_name == 'DistMult':
         return DistMult(ent_tot=ent_tot, rel_tot=rel_tot, em_dim=em_dim, sigmoid_flag=sigmoid_flag)
-    elif model_name == 'adv_TransE':
-        return adv_TransE(ent_tot=ent_tot, rel_tot=rel_tot, em_dim=em_dim)
-    elif model_name == 'adv_DistMult':
-        return adv_DistMult(ent_tot=ent_tot, rel_tot=rel_tot, em_dim=em_dim)
+    elif model_name == 'ComplEx':
+        return ComplEx(ent_tot=ent_tot, rel_tot=rel_tot, em_dim=em_dim, sigmoid_flag=sigmoid_flag)
+    elif model_name == 'ConvE':
+        return ConvE(ent_tot=ent_tot, rel_tot=rel_tot, em_dim=em_dim, sigmoid_flag=sigmoid_flag)
     else:
-        pass
+        raise Exception("please choose model from TransE/DistMult/ComplEx/ConvE.")
 
 def get_loss(loss_name, margin):
     print('[getting loss function {}]'.format(loss_name))

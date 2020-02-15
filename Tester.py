@@ -70,6 +70,8 @@ class Tester(object):
         for i in label:
             tmp = eval(i)
             one_hot =  torch.zeros(self.ent_tot).scatter_(0, torch.LongTensor(tmp), 1)
+            # print(self.params.label_smoothing, one_hot.size(0))
+            one_hot = ((1.0 - self.params.label_smoothing)*one_hot) + (float(self.params.label_smoothing)/one_hot.size(0))
             # print(one_hot)
             if flag:
                 res = torch.cat((res, one_hot), -1)
@@ -90,34 +92,44 @@ class Tester(object):
             
             #only use h, r, t, label
             h, r, t, h_n, r_n, t_n, label = data_val['en1'], data_val['rel'], data_val['en2'], data_val['en1_n'], data_val['rel_n'],data_val['en2_n'], data_val['en1_neighbour']
+            h, r = h.to(self.device), r.to(self.device)
             tot += int(h.shape[0]) # tot test size
             tmp = self.test_one_step(h, r)
-            label = self.label_transform(label).long()
+            label = self.label_transform(label).to(self.device)
+            # label = label.to(self.device)
+            max_label_val = torch.max(label)
+            # print(label)
             descending = True if self.params.loss == 'bce' else False
+            # descending = False
+            # print(descending)
             sorted_data, indices = torch.sort(tmp, -1, descending=descending)
             # print(indices)
             # print(new_label)
             for i in range(t.shape[0]):
-                new_label = [int(label[i][j]) for j in indices[i]]
+                new_label = [label[i][j] for j in indices[i]]
                 # print(label[i])
                 # print(new_label)
                 raw_rank = np.argwhere(indices[i] == t[i])[0][0]
-                filter_rank = new_label.index(1)
+                filter_rank = new_label.index(max_label_val)
                 # print(raw_rank, filter_rank)
                 # print(filter_rank)
-                raw_mrr += 1.0 / (raw_rank + 1)
-                filter_mrr += 1.0 / (filter_rank + 1)
+                raw_mrr += 1.0 / (float(raw_rank) + 1.0)
+                filter_mrr += 1.0 / (float(filter_rank) + 1)
                 if raw_rank < 10:
                     Hist_raw_n[raw_rank] += 1
                 if filter_rank < 10:
                     Hist_filter_n[filter_rank] += 1
         print(tot)
-        print("# raw MRR:{}".format(raw_mrr / tot))
-        print("# filter MRR:{}".format(filter_mrr / tot))
-        cur_tot = 0
+        print("# raw MRR:{:.3f}".format(raw_mrr / tot))
+        print("# filter MRR:{:.3f}".format(filter_mrr / tot))
+        cur_raw_tot = 0
+        cur_filter_tot = 0
         for i in hist:
-            cur_tot +=  Hist_raw_n[i - 1]
-            print("# raw Hist@{} : {}".format(i, cur_tot / tot))
+            cur_raw_tot +=  Hist_raw_n[i - 1]
+            print("# raw Hist@{} : {:.3f}".format(i, cur_raw_tot / tot))
+        for i in hist:
+            cur_filter_tot += Hist_filter_n[i - 1]
+            print("# filter Hist@{} : {:.3f}".format(i, cur_filter_tot / tot))
 
                 
 

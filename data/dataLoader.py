@@ -14,7 +14,20 @@ class kge_data_loader(Dataset):
         self.data_frame = [line.strip().split('\t') for line in fr.readlines()[1:]]
         self.sample_flag = sample_flag
         self.sample_size = sample_size
+        
         # print(len(self.data_frame))
+    def create_label(self):
+        print('[creating labels]')
+        for i in range(len(self.data_frame)):
+            label = eval(self.data_frame[i][3])
+            one_hot = list(torch.zeros(self.ent_tot).scatter_(0, torch.LongTensor(label), 1))
+            # one_hot = ((1.0 - self.label_smoothing)*one_hot) + (1.0/one_hot.size(0))
+            self.data_frame[i][3] = one_hot
+            print('{:3f} {}/{}'.format(i/len(self.data_frame), i, len(self.data_frame)), end='\r')
+        print('[create labels ok!]')
+        # print(self.data_frame)
+
+
 
 
     def __len__(self):
@@ -56,14 +69,14 @@ class kge_data_loader(Dataset):
 
 
 if __name__=='__main__':
-    train_loader = kge_data_loader('FB15k-237', 'train.txt', ent_tot=14000, sample_flag = True, sample_size=0)
+    train_loader = kge_data_loader('toy', 'train.txt', ent_tot=14000, sample_flag = True, sample_size=0)
     dataset_loader = DataLoader(train_loader, batch_size=5, shuffle=False)
     k = 0
     for data_val in dataset_loader:
         h, r, t, h_n, r_n, t_n = data_val['en1'], data_val['rel'], data_val['en2'], data_val['en1_n'], data_val['rel_n'],data_val['en2_n']
         # k += 8
         print(h, r, t, h_n, r_n, t_n)
-        print(len(data_val['en1_neighbour']))
+        print(data_val['en1_neighbour'])
         break
         
         # for i in range(len(h_n)):

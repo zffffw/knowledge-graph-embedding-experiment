@@ -7,10 +7,17 @@ from utils import *
 from data.dataLoader import *
 from config import *
 
+from prefetch_generator import BackgroundGenerator
+class DataLoaderX(DataLoader):
+    def __iter__(self):
+        return BackgroundGenerator(super().__iter__())
+
 parser = argparse.ArgumentParser(description='model')
 
 parser.add_argument("--data", type=str, default="FB15k",
                     help="which dataset to use? FB15k/...")
+parser.add_argument("--label_smoothing", type=float, default=0.1,
+                    help="Label smoothing value to use. Default: 0.1")
 parser.add_argument("--model", type=str, default="TransE",
                     help="Model to use")
 parser.add_argument("--times", type=int, default=100,

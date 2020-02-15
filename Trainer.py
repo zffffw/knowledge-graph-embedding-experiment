@@ -4,6 +4,10 @@ import torch.nn.functional as F
 import torch.optim as optim
 import time
 import codecs
+from prefetch_generator import BackgroundGenerator
+class DataLoaderX(DataLoader):
+    def __iter__(self):
+        return BackgroundGenerator(super().__iter__())
 
 class Trainer:
     def __init__(self, params, ent_tot, rel_tot, model_name, loss_name, train_data_loader, valid_data_loader, model, \
@@ -37,13 +41,13 @@ class Trainer:
             p_t = t[:size].reshape(-1, 1)
             n_t = t[size:].reshape(-1, 1)
             # print(n_t, p_t)
-            p_score_s = torch.gather(p_score, dim=1, index=p_t)
-            n_score_s = torch.gather(n_score, dim=1, index=n_t)
+            p_score_s = torch.gather(p_score, dim=1, index=p_t).to(self.device)
+            n_score_s = torch.gather(n_score, dim=1, index=n_t).to(self.device)
             # print(p_score_s.shape, n_score_s.shape)
-            closs = self.loss(p_score_s, n_score_s, torch.Tensor([-1]))
+            closs = self.loss(p_score_s, n_score_s, torch.Tensor([-1]).to(self.device)).to(self.device)
         elif self.loss_name == 'bce':
             # print(p_score.shape, label.shape)
-            closs = self.loss(p_score, label)
+            closs = self.loss(p_score, label).to(self.device)
         return closs
 
             
@@ -87,7 +91,8 @@ class Trainer:
                 h = torch.cat((h, h_n[i]), 0)
                 t = torch.cat((t, t_n[i]), 0)
                 r = torch.cat((r, r_n[i]), 0)
-            label = self.label_transform(label)
+            # label = self.label_transform(label).to(self.device)
+            label = label.to(self.device)
             batch_h, batch_t, batch_r = h.to(self.device), t.to(self.device), r.to(self.device)
             size = int(h.shape[0] / (1 + self.negative_size))
             p_score, n_score = self.model(batch_h, batch_r, batch_t, size)
@@ -110,12 +115,16 @@ class Trainer:
         for i in label:
             tmp = eval(i)
             one_hot = torch.zeros(self.ent_tot).scatter_(0, torch.LongTensor(tmp), 1)
+            #label smoothing
+            # e2_multi = ((1.0-args.label_smoothing)*e2_multi) + (1.0/e2_multi.size(1))
+            one_hot = ((1.0 - self.params.label_smoothing)*one_hot) + (1.0/one_hot.size(0))
             # print(one_hot)
             if flag:
                 res = torch.cat((res, one_hot), -1)
             else:
                 flag = True
                 res = one_hot
+        
                 
         return res.reshape(len(label), -1)
     
@@ -123,14 +132,15 @@ class Trainer:
         for epoch in range(self.times):
             cur_loss = 0
             self.model.train()
+            n, data_val = pre
             for n, data_val in enumerate(self.train_data_loader):
-                h, r, t, h_n, r_n, t_n, label = data_val['en1'], data_val['rel'], data_val['en2'], data_val['en1_n'], data_val['rel_n'],data_val['en2_n'], data_val['en1_neighbour']
                 for i in range(len(h_n)):
                     h = torch.cat((h, h_n[i]), 0)
                     t = torch.cat((t, t_n[i]), 0)
                     r = torch.cat((r, r_n[i]), 0)
                 # print(label)
-                label = self.label_transform(label)
+                label = self.label_transform(label).to(self.device)
+                # label = label.to(self.device)
                 # print(label)
                 batch_h, batch_t, batch_r = h.to(self.device), t.to(self.device), r.to(self.device)
                 cur_loss += self.train_one_step(batch_h, batch_r, batch_t, label)

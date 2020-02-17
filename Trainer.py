@@ -4,10 +4,6 @@ import torch.nn.functional as F
 import torch.optim as optim
 import time
 import codecs
-from prefetch_generator import BackgroundGenerator
-class DataLoaderX(DataLoader):
-    def __iter__(self):
-        return BackgroundGenerator(super().__iter__())
 
 class Trainer:
     def __init__(self, params, ent_tot, rel_tot, model_name, loss_name, train_data_loader, valid_data_loader, model, \
@@ -92,7 +88,8 @@ class Trainer:
                 t = torch.cat((t, t_n[i]), 0)
                 r = torch.cat((r, r_n[i]), 0)
             # label = self.label_transform(label).to(self.device)
-            label = label.to(self.device)
+            if self.params.loss == 'bce':
+                label = self.label_transform(label).to(self.device)
             batch_h, batch_t, batch_r = h.to(self.device), t.to(self.device), r.to(self.device)
             size = int(h.shape[0] / (1 + self.negative_size))
             p_score, n_score = self.model(batch_h, batch_r, batch_t, size)
@@ -132,14 +129,15 @@ class Trainer:
         for epoch in range(self.times):
             cur_loss = 0
             self.model.train()
-            n, data_val = pre
             for n, data_val in enumerate(self.train_data_loader):
+                h, r, t, h_n, r_n, t_n, label = data_val['en1'], data_val['rel'], data_val['en2'], data_val['en1_n'], data_val['rel_n'],data_val['en2_n'], data_val['en1_neighbour']
                 for i in range(len(h_n)):
                     h = torch.cat((h, h_n[i]), 0)
                     t = torch.cat((t, t_n[i]), 0)
                     r = torch.cat((r, r_n[i]), 0)
                 # print(label)
-                label = self.label_transform(label).to(self.device)
+                if self.params.loss == 'bce':
+                    label = self.label_transform(label).to(self.device)
                 # label = label.to(self.device)
                 # print(label)
                 batch_h, batch_t, batch_r = h.to(self.device), t.to(self.device), r.to(self.device)

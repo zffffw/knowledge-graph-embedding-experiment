@@ -7,10 +7,7 @@ from utils import *
 from data.dataLoader import *
 from config import *
 
-from prefetch_generator import BackgroundGenerator
-class DataLoaderX(DataLoader):
-    def __iter__(self):
-        return BackgroundGenerator(super().__iter__())
+
 
 parser = argparse.ArgumentParser(description='model')
 
@@ -126,37 +123,11 @@ else:
         ttype = ['test', '1-1', '1-N', 'N-1', 'N-N']
         for tt in ttype:
             try:
-                test_data_loader = get_data_loader(params.data, 3, tt, sample_size=0)
+                test_data_loader = get_data_loader(params.data, 100, tt, sample_size=0)
             except:
                 print('no test data {}...'.format(tt))
                 break
-            # test_data_loader_1to1 = get_data_loader(params.data, 1, '1-1', sample_flag=False)
-            # test_data_loader_1toN = get_data_loader(params.data, 1, '1-N', sample_flag=False)
-            # test_data_loader_Nto1 = get_data_loader(params.data, 1, 'N-1', sample_flag=False)
-            # test_data_loader_NtoN = get_data_loader(params.data, 1, 'N-N', sample_flag=False)
             ent_tot, rel_tot = dataset_param(params.data)
             tester = Tester(params, ent_tot, rel_tot, model, test_data_loader)
-            # tester_1to1 = Tester(params, ent_tot, rel_tot, model, test_data_loader_1to1)
-            # tester_1toN = Tester(params, ent_tot, rel_tot, model, test_data_loader_1toN)
-            # tester_Nto1 = Tester(params, ent_tot, rel_tot, model, test_data_loader_Nto1)
-            # tester_NtoN = Tester(params, ent_tot, rel_tot, model, test_data_loader_NtoN)
             print('run {} head.....'.format(tt))
             tester.test_run(type='head')
-            # print('run {} tail.....'.format(tt))
-            # tester.test_run(type='tail')
-        # print('run 1-1 head.....')
-        # tester_1to1.test_run(type='head')
-        # print('run 1-1 tail.....')
-        # tester_1to1.test_run(type='tail')
-        # print('run 1-N head.....')
-        # tester_1toN.test_run(type='head')
-        # print('run 1-N tail.....')
-        # tester_1toN.test_run(type='tail')
-        # print('run N-1 head.....')
-        # tester_Nto1.test_run(type='head')
-        # print('run N-1 tail.....')
-        # tester_Nto1.test_run(type='tail')
-        # print('run N-N head.....')
-        # tester_NtoN.test_run(type='head')
-        # print('run N-N tail.....')
-        # tester_NtoN.test_run(type='tail')

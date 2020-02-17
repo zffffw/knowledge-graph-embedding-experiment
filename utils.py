@@ -48,7 +48,7 @@ def get_data_loader(dataset_name, batch_size, type='train', sample_flag=True, sa
         tmp_loader = kge_data_loader(root, type + '.txt', ent_tot, sample_flag, sample_size)
     print('[ok]')
 
-    return DataLoader(tmp_loader, batch_size=batch_size, shuffle=True)
+    return DataLoader(tmp_loader, batch_size=batch_size, shuffle=True, num_workers=8, pin_memory=True)
 
 
 

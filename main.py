@@ -39,7 +39,7 @@ parser.add_argument("--p_norm", type=int, default=1,
                     help="The norm to use for the distance metric")
 parser.add_argument("--optimizer", type=str, default="SGD",
                     help="Which optimizer to use? SGD/Adam")
-parser.add_argument("--embedding_dim", type=int, default=50,
+parser.add_argument("--embedding_dim", type=int, default=200,
                     help="Entity and relations embedding size")
 parser.add_argument("--lr", type=float, default=0.01,
                     help="Learning rate of the optimizer")
@@ -62,6 +62,19 @@ parser.add_argument('--train_flag', action='store_true',
                     help='train ?')
 parser.add_argument('--sigmoid_flag', action='store_true',
                     help='use sigmoid ?')
+
+parser.add_argument('--input_drop', type=float, default=0.2,
+                    help='input dropout layer param for ConvE')
+parser.add_argument('--hidden_drop', type=float, default=0.3,
+                    help='hidden dropout layer param for ConvE')
+parser.add_argument('--feat_drop', type=float, default=0.2,
+                    help='feature map dropout layer param for ConvE')
+parser.add_argument('--embedding-shape1', type=int, default=20,
+                    help='The first dimension of the reshaped 2D embedding. The second dimension is infered. Default: 20')
+parser.add_argument('--hidden_size', type=int, default=9728,
+                    help='The side of the hidden layer. The required size changes with the size of the embeddings. Default: 9728 (embedding size 200).')
+parser.add_argument('--use-bias', action='store_true', 
+                    help='Use a bias in the convolutional layer. Default: True')
 params = parser.parse_args()
 print(params)
 if params.debug:
@@ -82,7 +95,7 @@ else:
 
     device = 'cuda' if params.cuda else 'cpu'
 
-    model = get_model(params.model, params.data, params.embedding_dim, params.p_norm, params.sigmoid_flag).to(device)
+    model = get_model(params.model, params.data, params.embedding_dim, params.p_norm, params.sigmoid_flag, params).to(device)
     loss = get_loss(params.loss, params.margin)
     if params.optimizer == 'SGD':
         opt = optim.SGD(model.parameters(), params.lr, params.momentum)

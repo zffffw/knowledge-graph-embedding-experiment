@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
+from torch.nn import functional as F, Parameter
+
 import numpy as np
 import codecs
 class TransE(nn.Module):
@@ -117,18 +118,61 @@ class DistMult(nn.Module):
 
 
     
-class ConvE(nn.Module):
-    def __init__(self, ent_tot, rel_tot, em_dim = 100, dropout=False, dropout_p = 0.0):
+class ConvE(torch.nn.Module):
+    def __init__(self, args, ent_tot, rel_tot):
         super(ConvE, self).__init__()
-        self.ent_embeddings = nn.Embedding(ent_tot, em_dim, padding_idx=0)
-        self.rel_embeddings = nn.Embedding(rel_tot, em_dim, padding_idx=0)
+        self.emb_e = torch.nn.Embedding(ent_tot, args.embedding_dim, padding_idx=0)
+        self.emb_rel = torch.nn.Embedding(rel_tot, args.embedding_dim, padding_idx=0)
+        self.inp_drop = torch.nn.Dropout(args.input_drop)
+        self.hidden_drop = torch.nn.Dropout(args.hidden_drop)
+        self.feature_map_drop = torch.nn.Dropout2d(args.feat_drop)
+        self.loss = torch.nn.BCELoss()
+        self.emb_dim1 = args.embedding_shape1
+        self.emb_dim2 = args.embedding_dim // self.emb_dim1
 
-        self.init_weights()
+        self.conv1 = torch.nn.Conv2d(1, 32, (3, 3), 1, 0, bias=args.use_bias)
+        self.bn0 = torch.nn.BatchNorm2d(1)
+        self.bn1 = torch.nn.BatchNorm2d(32)
+        self.bn2 = torch.nn.BatchNorm1d(args.embedding_dim)
+        self.register_parameter('b', Parameter(torch.zeros(ent_tot)))
+        self.fc = torch.nn.Linear(args.hidden_size,args.embedding_dim)
+        print(ent_tot, rel_tot)
 
+    def init(self):
+        xavier_normal_(self.emb_e.weight.data)
+        xavier_normal_(self.emb_rel.weight.data)
+    
+    def _calc(self, e1, rel):
+        e1_embedded= self.emb_e(e1).view(-1, 1, self.emb_dim1, self.emb_dim2)
+        rel_embedded = self.emb_rel(rel).view(-1, 1, self.emb_dim1, self.emb_dim2)
 
-    def init_weights(self):
-        nn.init.xavier_uniform_(self.ent_embeddings.weight.data)
-        nn.init.xavier_uniform_(self.rel_embeddings.weight.data)
+        stacked_inputs = torch.cat([e1_embedded, rel_embedded], 2)
+
+        stacked_inputs = self.bn0(stacked_inputs)
+        x= self.inp_drop(stacked_inputs)
+        x= self.conv1(x)
+        x= self.bn1(x)
+        x= F.relu(x)
+        x = self.feature_map_drop(x)
+        x = x.view(x.shape[0], -1)
+        x = self.fc(x)
+        x = self.hidden_drop(x)
+        x = self.bn2(x)
+        x = F.relu(x)
+        x = torch.mm(x, self.emb_e.weight.transpose(1,0))
+        x += self.b.expand_as(x)
+        pred = torch.sigmoid(x)
+        return pred
+
+    def forward(self, batch_h, batch_r, batch_t, batch_size):
+        score = self._calc(batch_h, batch_r)
+        pos_score = score[0: batch_size]
+        neg_score = score[batch_size: ]
+        return pos_score, neg_score
+    def predict(self, batch_h, batch_r):
+        score = self._calc(batch_h, batch_r)
+        return score
+
 
 class ComplEx(nn.Module):
     def __init__(self, ent_tot, rel_tot, em_dim = 100, input_drop=0.2, sigmoid_flag=True):

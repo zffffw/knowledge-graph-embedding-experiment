@@ -37,18 +37,39 @@ class pre_process_data:
         print('entity:', len(self.item2index['entity']), ', relation', len(self.item2index['relation']))
 
 
+
     def create_NN(self):
-        names = ['train2index.txt', 'test2index.txt', 'valid2index.txt']
+        names = ['train', 'test', 'valid']
         for name in names:
-            fr = codecs.open(self.root + '/' + name, 'r', encoding='utf-8')
+            fr = codecs.open(self.root + '/' + name + '2index.txt', 'r', encoding='utf-8')
+            # print(name)
             for line in fr.readlines()[1:]:
+                # print(line.strip())
                 h, r, t = line.strip().split('\t')
+                h, r, t = int(h), int(r), int(t)
                 if (h, r) not in self.left:
                     self.left[(h, r)] = []
                 if (r, t) not in self.right:
                     self.right[(r, t)] = []
-                self.left[(h,r)].append(t)
+                self.left[(h, r)].append(t)
                 self.right[(r, t)].append(h)
+            fr.close()
+
+        for name in names:
+            fr = codecs.open(self.root + '/' + name + '2index.txt', 'r', encoding='utf-8')
+            fw_left = codecs.open(self.root + '/' + name + '.txt', 'w', encoding='utf-8')
+            fw_left.write(fr.readline())
+            # print(fr, self.root + '/' + name + '2index.txt')
+            for line in fr.readlines():
+                # print(line.strip())
+                h, r, t = tuple(line.strip().split())
+                h, r, t = int(h), int(r), int(t)
+                fw_left.write(line.strip() + '\t' + str(self.left[(h, r)]) + '\n')
+            fr.close()
+            fw_left.close()
+
+             
+
             
         for (h, r) in self.left:
             if r not in self.left_rel:
@@ -63,6 +84,9 @@ class pre_process_data:
             self.right_rel[r] += len(self.right[(r, t)])
             self.right_tot[r] += 1.0
         # print(len(self.left), len(self.right))
+        # create index of (h, r)-->
+        
+        
         
         
         fw11 = codecs.open(self.root + '/' + '1-1.txt', 'w', encoding='utf-8')
@@ -77,8 +101,10 @@ class pre_process_data:
         tmp = fr.readlines()[1:]
         for line in tmp:
             h, r, t = line.strip().split('\t')
-            left_n = self.right_rel[r] / self.right_tot[r]
-            right_n = self.left_rel[r] / self.left_tot[r]
+            h, r, t = int(h), int(r), int(t)
+            left_n = float(self.right_rel[r]) / float(self.right_tot[r])
+            right_n = float(self.left_rel[r]) / float(self.left_tot[r])
+            # print(left_n, right_n)
             if right_n < 1.5 and left_n < 1.5:
                 s11 += 1
             elif right_n < 1.5 and left_n >= 1.5:
@@ -94,16 +120,18 @@ class pre_process_data:
         print('1-1:', s11, '1-N:', s1n, 'N-1:', sn1, 'N-N:', snn)
         for line in tmp:
             h, r, t = line.strip().split('\t')
+            h, r, t = int(h), int(r), int(t)
+            # print(h, r, t)
             left_n = self.right_rel[r] / self.right_tot[r]
             right_n = self.left_rel[r] / self.left_tot[r]
             if right_n < 1.5 and left_n < 1.5:
-                fw11.write(h + '\t' + r + '\t' + t + '\n')
+                fw11.write(str(h) + '\t' + str(r) + '\t' + str(t) + '\t' + str(self.left[(h, r)]) + '\n')
             elif right_n < 1.5 and left_n >= 1.5:
-                fwn1.write(h + '\t' + r + '\t' + t + '\n')
+                fwn1.write(str(h) + '\t' + str(r) + '\t' + str(t) + '\t' + str(self.left[(h, r)]) + '\n')
             elif right_n >= 1.5 and left_n < 1.5:
-                fw1n.write(h + '\t' + r + '\t' + t + '\n')
+                fw1n.write(str(h) + '\t' + str(r) + '\t' + str(t) + '\t' + str(self.left[(h, r)]) + '\n')
             elif right_n >= 1.5 and left_n >= 1.5:
-                fwnn.write(h + '\t' + r + '\t' + t + '\n')
+                fwnn.write(str(h) + '\t' + str(r) + '\t' + str(t) + '\t' + str(self.left[(h, r)]) + '\n')
 
         
         # print(len(self.left_rel), len(self.right_rel))
@@ -152,6 +180,15 @@ class pre_process_data:
             tmp = line.strip().split('\t')
             self.index2item[type][int(tmp[1])] = tmp[0]
         return self.index2item[type]
+    # def create_h2t(self):
+    #     files = ['train2index.txt', 'test2index.txt', 'valid2index.txt']
+    #     for f in files:
+    #         fr = codecs.open(self.root + '/' + f, 'r', encoding='utf-8')
+    #         tmp = fr.readlines()
+    #         for line in tmp[1:]:
+    #             h, r, t = tuple(line.strip().split())
+    #             print(h, r, t)
+
     
     def run(self):
         '''
@@ -181,6 +218,7 @@ class pre_process_data:
                 relation = str(self.item2index['relation'][tmp[1]])
                 tail = str(self.item2index['entity'][tmp[2]])
                 fw.write(head + '\t' + relation + '\t' + tail + '\n')
+            fw.close()
             print(type, ', tot_num:', n + 1)
         print('create train2index, test2index, valid2index ok!')
         '''
@@ -203,12 +241,15 @@ class pre_process_data:
 
 
 if __name__=='__main__':
-    args = {'path':'countries_S1', 'name':'', 'name_list':['countriess1_train.txt', 'countriess1_test.txt', 'countriess1_valid.txt']}
-    args = {'path':'toy', 'name':'', 'name_list':['toy_train.txt', 'toy_test.txt', 'toy_valid.txt']}
-    args = {'path':'wordnet-mlj12', 'name':'', 'name_list':['wordnet-mlj12-train.txt', 'wordnet-mlj12-test.txt', 'wordnet-mlj12-valid.txt']}
-    # args = {'path':'FB15k', 'name':'', 'name_list':['freebase_mtr100_mte100-train.txt', 'freebase_mtr100_mte100-test.txt', 'freebase_mtr100_mte100-valid.txt']}
-    t = pre_process_data(args['path'], args['name'], args['name_list'])
-
-    # t = pre_process_data('FB15k', '', ['freebase_mtr100_mte100-train.txt', 'freebase_mtr100_mte100-test.txt', 'freebase_mtr100_mte100-valid.txt'])
-    t.run()
+    args1 = {'path':'countries_S1', 'name':'', 'name_list':['countriess1_train.txt', 'countriess1_test.txt', 'countriess1_valid.txt']}
+    args2 = {'path':'toy', 'name':'', 'name_list':['toy_train.txt', 'toy_test.txt', 'toy_valid.txt']}
+    args3 = {'path':'wordnet-mlj12', 'name':'', 'name_list':['wordnet-mlj12-train.txt', 'wordnet-mlj12-test.txt', 'wordnet-mlj12-valid.txt']}
+    args4 = {'path':'FB15k-237', 'name':'', 'name_list':['fb237-train.txt', 'fb237-test.txt', 'fb237-valid.txt']}
+    args5 = {'path':'FB15k', 'name':'', 'name_list':['freebase_mtr100_mte100-train.txt', 'freebase_mtr100_mte100-test.txt', 'freebase_mtr100_mte100-valid.txt']}
+    argsn = [args1, args2, args3, args4, args5]
+    for args in argsn:
+        t = pre_process_data(args['path'], args['name'], args['name_list'])
+        # t.create_h2t()
+        # t = pre_process_data('FB15k', '', ['freebase_mtr100_mte100-train.txt', 'freebase_mtr100_mte100-test.txt', 'freebase_mtr100_mte100-valid.txt'])
+        t.run()
 

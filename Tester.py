@@ -37,8 +37,8 @@ class Tester(object):
     #     res = self.model.predict(test_data[:, 0], test_data[:, 1], test_data[:, 2])
     #     # return torch.cat((test_data.float(), res), 1)
     #     return res
-    def test_one_step(self, h, r):
-        return self.model.predict(h, r)
+    # def test_one_step(self, h, r):
+    #     return self.model.predict(h, r)
     
     
     # def get_rank(self, res, target, type='head'):
@@ -63,23 +63,23 @@ class Tester(object):
     #                 # fil_rank = n + 1
     #                 c += 1
     #     return raw_rank, fil_rank
-    def label_transform(self,  label):
-        res = 0
-        flag = False
-        # print(label)
-        for i in label:
-            tmp = eval(i)
-            one_hot =  torch.zeros(self.ent_tot).scatter_(0, torch.LongTensor(tmp), 1)
-            # print(self.params.label_smoothing, one_hot.size(0))
-            one_hot = ((1.0 - self.params.label_smoothing)*one_hot) + (float(self.params.label_smoothing)/one_hot.size(0))
-            # print(one_hot)
-            if flag:
-                res = torch.cat((res, one_hot), -1)
-            else:
-                flag = True
-                res = one_hot
+    # def label_transform(self,  label):
+    #     res = 0
+    #     flag = False
+    #     # print(label)
+    #     for i in label:
+    #         all_tail_score_raw = eval(i)
+    #         one_hot =  torch.zeros(self.ent_tot).scatter_(0, torch.LongTensor(all_tail_score_raw), 1)
+    #         # print(self.params.label_smoothing, one_hot.size(0))
+    #         one_hot = ((1.0 - self.params.label_smoothing)*one_hot) + (float(self.params.label_smoothing)/one_hot.size(0))
+    #         # print(one_hot)
+    #         if flag:
+    #             res = torch.cat((res, one_hot), -1)
+    #         else:
+    #             flag = True
+    #             res = one_hot
                 
-        return res.reshape(len(label), -1)
+    #     return res.reshape(len(label), -1)
     
     def test_run(self, type='head', hist=[1, 3, 10]):
         self.model.eval()
@@ -94,56 +94,38 @@ class Tester(object):
             h, r, t, h_n, r_n, t_n, label = data_val['en1'], data_val['rel'], data_val['en2'], data_val['en1_n'], data_val['rel_n'],data_val['en2_n'], data_val['en1_neighbour']
             h, r = h.to(self.device), r.to(self.device)
             tot += int(h.shape[0]) # tot test size
-            tmp = self.test_one_step(h, r)
-            # print(tmp[0])
+            all_tail_score_raw = self.model.predict(h, r)
+            all_tail_score_filter = all_tail_score_raw.clone()
+
             label_ = []
             for i in label:
                 label_.append(eval(i))
             for i in range(t.shape[0]):
-                # print(t[i])
-                target = tmp[i][t[i].item()].item()
-                tmp[i][label_[i]] = 0.0
-                tmp[i][t[i]] = target
-                # print(target)
-            # label = self.label_transform(label).to(self.device)
-            # label = label.to(self.device)
-            # max_label_val = torch.max(label)
-            # print(label)
+                target = all_tail_score_filter[i][t[i].item()].item()
+                all_tail_score_filter[i][label_[i]] = 0.0
+                all_tail_score_filter[i][t[i]] = target
             descending = True if self.params.loss == 'bce' else False
-            # descending = False
-            # print(descending)
-            sorted_data, indices = torch.sort(tmp, -1, descending=descending)
-            # print(sorted_data)
-            # print(indices)
-            # print(new_label)
+            sorted_data_raw, indices_raw = torch.sort(all_tail_score_raw, -1, descending=descending)
+            sorted_data_filter, indices_filter = torch.sort(all_tail_score_filter, -1, descending=descending)
             for i in range(t.shape[0]):
-                # new_label = [label[i][j] for j in indices[i]]
-                # print(label[i])
-                # print(new_label)
-                # raw_rank = np.argwhere(indices[i] == t[i])[0][0]
-                filter_rank = np.argwhere(indices[i] == t[i].item())[0][0]
-                # filter_rank = new_label.index(max_label_val)
-                # print(raw_rank, filter_rank)
-                # print(filter_rank)
-                # raw_mrr += 1.0 / (float(raw_rank) + 1.0)
-                filter_mrr += 1.0 / (float(filter_rank) + 1)
-                # print(filter_rank, end='\r')
-                # if raw_rank < 10:
-                #     Hist_raw_n[raw_rank] += 1
+                raw_rank = np.argwhere(indices_raw[i] == t[i].item())[0][0]
+                filter_rank = np.argwhere(indices_filter[i] == t[i].item())[0][0]
+                raw_mrr += 1.0 / (float(raw_rank) + 1.0)
+                filter_mrr += 1.0 / (float(filter_rank) + 1.0)
                 for k in range(10):
                     if filter_rank <= k:
                         Hist_filter_n[k] += 1.0
+                    if raw_rank <= k:
+                        Hist_raw_n[k] += 1.0
 
         print(tot)
-        # print("# raw MRR:{:.3f}".format(raw_mrr / tot))
+        print("# raw MRR:{:.3f}".format(raw_mrr / tot))
         print("# filter MRR:{:.3f}".format(filter_mrr / tot))
-        # cur_raw_tot = 0
-        # cur_filter_tot = 0
-        # for i in hist:
-        #     cur_raw_tot +=  Hist_raw_n[i - 1]
-        #     print("# raw Hist@{} : {:.3f}".format(i, cur_raw_tot / tot))
+        for i in hist:
+            print("# raw Hist@{} : {:.3f}".format(i, Hist_raw_n[i - 1] / tot))
         for i in hist:
             print("# filter Hist@{} : {:.3f}".format(i, Hist_filter_n[i - 1] / tot))
+            
 
                 
 
@@ -168,9 +150,9 @@ class Tester(object):
     #             # test_data = torch.cat((torch.arange(0, self.ent_tot).reshape(-1, 1), torch.Tensor([r]*self.ent_tot).long().reshape(-1, 1),\
     #             #  torch.Tensor([t]*self.ent_tot).long().reshape(-1, 1)), 1)
     #             print(h, r, t)
-    #             tmp = self.test_one_step(test_data.long().to(self.device)).detach().numpy()
-    #             tmp = sorted(tmp, key=lambda x: x[3])
-    #             raw_rank, fil_rank = self.get_rank(tmp, h, type)
+    #             all_tail_score_raw = self.test_one_step(test_data.long().to(self.device)).detach().numpy()
+    #             all_tail_score_raw = sorted(all_tail_score_raw, key=lambda x: x[3])
+    #             raw_rank, fil_rank = self.get_rank(all_tail_score_raw, h, type)
 
                 
     #         elif type == 'tail':
@@ -178,9 +160,9 @@ class Tester(object):
     #             # test_data[:, 0] = h
     #             test_data = torch.cat((torch.Tensor([h]*self.ent_tot).long().reshape(-1, 1) , torch.Tensor([r]*self.ent_tot).long().reshape(-1, 1),\
     #              torch.arange(0, self.ent_tot).reshape(-1, 1)), 1)
-    #             tmp = self.test_one_step(test_data.long().to(self.device)).detach().numpy()
-    #             tmp = sorted(tmp, key=lambda x: x[3])
-    #             raw_rank, fil_rank = self.get_rank(tmp, t, type)
+    #             all_tail_score_raw = self.test_one_step(test_data.long().to(self.device)).detach().numpy()
+    #             all_tail_score_raw = sorted(all_tail_score_raw, key=lambda x: x[3])
+    #             raw_rank, fil_rank = self.get_rank(all_tail_score_raw, t, type)
     #         print('mr:{:.3f}, mrr:{:.3f}, raw_Hist@10:{:.2%}, raw_Hist@3:{:.2%}, raw_Hist@1:{:.2%}, mr:{:.3f}, mrr:{:.3f}, filter_Hist@10:{:.2%}, filter_Hist@3:{:.2%}, filter_Hist@1:{:.2%}, {}/{}, {:.2%}'.\
     #                  format(tot_rank / (n + 1), tot_rank_reverse / (n + 1), Hist_10 / (n + 1), Hist_3 / (n + 1), Hist_1 / (n + 1), \
     #                      fil_tot_rank / (n + 1), fil_tot_rank_reverse / (n + 1),  fil_Hist_10 / (n + 1), fil_Hist_3 / (n + 1), fil_Hist_1 / (n + 1),\

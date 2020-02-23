@@ -36,19 +36,19 @@ def get_loss(loss_name, margin):
         return nn.BCELoss()
 
 
-def get_data_loader(dataset_name, batch_size, type='train', sample_flag=True, sample_size=1):
+def get_data_loader(dataset_name, batch_size, type='train', sample_flag=True, sample_size=1, param=None):
     ent_tot = datasets_param.d[dataset_name]['ent_tot']
     rel_tot = datasets_param.d[dataset_name]['rel_tot']
     root = datasets_param.d[dataset_name]['root'] 
     print('[loading data {}]'.format(dataset_name))
     
     if type in ['train', 'test', 'valid']:
-        tmp_loader = kge_data_loader(root, type + '.pkl', ent_tot, sample_flag, sample_size)
+        tmp_loader = kge_data_loader(root, type + '.pkl', ent_tot, sample_flag, sample_size, param)
     else:
-        tmp_loader = kge_data_loader(root, type + '.pkl', ent_tot, sample_flag, sample_size)
+        tmp_loader = kge_data_loader(root, type + '.pkl', ent_tot, sample_flag, sample_size, param)
     print('[ok]')
 
-    return DataLoader(tmp_loader, batch_size=batch_size, shuffle=True, num_workers=8, pin_memory=True)
+    return DataLoader(tmp_loader, batch_size=batch_size, shuffle=True, num_workers=4, pin_memory=True)
 
 
 

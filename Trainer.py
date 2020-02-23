@@ -88,10 +88,12 @@ class Trainer:
                 t = torch.cat((t, t_n[i]), 0)
                 r = torch.cat((r, r_n[i]), 0)
             # label = self.label_transform(label).to(self.device)
-            if self.params.loss == 'bce':
-                label = self.label_transform(label).to(self.device)
-            batch_h, batch_t, batch_r = h.to(self.device), t.to(self.device), r.to(self.device)
+            # if self.params.loss == 'bce':
+            #     label = self.label_transform(label).to(self.device)
+            batch_h, batch_t, batch_r = h.to(self.device, non_blocking=True), t.to(self.device, non_blocking=True), r.to(self.device, non_blocking=True)
             size = int(h.shape[0] / (1 + self.negative_size))
+            if self.params.loss == 'bce':
+                label = label.to(self.device, non_blocking=True)
             p_score, n_score = self.model(batch_h, batch_r, batch_t, size)
 
             loss_ = self.calc_loss(batch_t, p_score, n_score, size, label)
@@ -110,20 +112,18 @@ class Trainer:
         flag = False
         # print(label)
         for i in label:
-            tmp = eval(i)
-            one_hot = torch.zeros(self.ent_tot).scatter_(0, torch.LongTensor(tmp), 1)
+            # one_hot = torch.zeros(self.ent_tot).scatter_(0, i.long(), 1)
             #label smoothing
             # e2_multi = ((1.0-args.label_smoothing)*e2_multi) + (1.0/e2_multi.size(1))
-            one_hot = ((1.0 - self.params.label_smoothing)*one_hot) + (1.0/one_hot.size(0))
+            one_hot = ((1.0 - self.params.label_smoothing)*i) + (1.0/i.size(0))
             # print(one_hot)
             if flag:
-                res = torch.cat((res, one_hot), -1)
+                res = torch.cat((res, i), -1)
             else:
                 flag = True
                 res = one_hot
         
-                
-        return res.reshape(len(label), -1)
+        return res
     
     def run(self):
         for epoch in range(self.times):
@@ -136,11 +136,14 @@ class Trainer:
                     t = torch.cat((t, t_n[i]), 0)
                     r = torch.cat((r, r_n[i]), 0)
                 # print(label)
-                if self.params.loss == 'bce':
-                    label = self.label_transform(label).to(self.device)
+                # if self.params.loss == 'bce':
+                #     label = self.label_transform(label).to(self.device)
+                # print(label.shape)
                 # label = label.to(self.device)
                 # print(label)
-                batch_h, batch_t, batch_r = h.to(self.device), t.to(self.device), r.to(self.device)
+                batch_h, batch_t, batch_r = h.to(self.device, non_blocking=True), t.to(self.device, non_blocking=True), r.to(self.device, non_blocking=True)
+                if self.params.loss == 'bce':
+                    label = label.to(self.device, non_blocking=True)
                 cur_loss += self.train_one_step(batch_h, batch_r, batch_t, label)
             
                 print('{}/{}, {:.2%}'.format(n, len(self.train_data_loader), n/len(self.train_data_loader)), end='\r')

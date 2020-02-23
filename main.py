@@ -76,7 +76,7 @@ parser.add_argument('--hidden_size', type=int, default=9728,
 parser.add_argument('--use-bias', action='store_true', 
                     help='Use a bias in the convolutional layer. Default: True')
 params = parser.parse_args()
-print(params)
+
 if params.debug:
     g = graph(datasets_param.d[params.data]['root'], 'test')
     g.create_graph()
@@ -94,6 +94,15 @@ if params.debug:
 else:
 
     device = 'cuda' if params.cuda else 'cpu'
+    if params.loss == 'margin' and params.negative_sample_size == 0:
+        raise Exception('the loss function is margin loss, please choose a negative sample size which is > 0')
+    elif params.loss == 'bce' and params.negative_sample_size > 0:
+        params.negative_sample_size = 0
+        if not params.sigmoid_flag:
+            raise Exception('must use sigmoid in model.')
+    print(params)
+
+
 
     model = get_model(params.model, params.data, params.embedding_dim, params.p_norm, params.sigmoid_flag, params).to(device)
     loss = get_loss(params.loss, params.margin)
@@ -111,8 +120,8 @@ else:
     '''
 
 
-    train_data_loader = get_data_loader(params.data, params.batch_size, 'train', sample_size=params.negative_sample_size)
-    valid_data_loader = get_data_loader(params.data, params.batch_size, 'valid', sample_size=params.negative_sample_size)
+    train_data_loader = get_data_loader(params.data, params.batch_size, 'train', sample_size=params.negative_sample_size, param=params)
+    valid_data_loader = get_data_loader(params.data, params.batch_size, 'valid', sample_size=params.negative_sample_size, param=params)
     ent_tot, rel_tot = dataset_param(params.data)
     trainer = Trainer(params, ent_tot, rel_tot, params.model, params.loss, train_data_loader, valid_data_loader, model, \
                 loss, opt, params.batch_size, params.negative_sample_size, use_GPU=params.cuda, \

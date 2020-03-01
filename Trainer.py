@@ -4,60 +4,55 @@ import torch.nn.functional as F
 import torch.optim as optim
 import time
 import codecs
+from Tester import Tester
 
 class Trainer:
-    def __init__(self, params, ent_tot, rel_tot, model_name, loss_name, train_data_loader, valid_data_loader, model, \
-        loss, optimizer, batch_size, negative_size, times=100, use_GPU=True, check_step = 10, save_step = 20):
-        self.model_name = model_name
+    def __init__(self, params, ent_tot, rel_tot, train_data_loader, valid_data_loader, model, optimizer):
+        self.model_name = params.model
         self.ent_tot = ent_tot
         self.rel_tot = rel_tot
-        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        self.device = torch.device("cuda:" + str(params.cuda) if params.cuda > -1 else "cpu")
         self.train_data_loader = train_data_loader
         self.valid_data_loader = valid_data_loader
         self.best_valid_loss = ''
-        self.check_step = check_step
+        self.check_step = params.check_step
+        self.eval_step = params.eval_step
         self.save_root = 'checkpoint/'
         self.losses = []
+        self.eval_mrr_filter = 0.0
 
-        self.times = times
-        self.loss = loss.to(self.device)
-        self.loss_name = loss_name
+        self.times = params.times
+        self.loss_name = params.loss
         self.optimizer = optimizer
         self.model = model.to(self.device)
         self.params = params
-        self.negative_size = negative_size
-        self.batch_size = batch_size
-        self.save_step = save_step
+        self.negative_size = params.negative_sample_size
+        self.batch_size = params.batch_size
+        self.save_step = params.save_step
         self.save_best_name = self.save_root + self.model_name + '.emb_' +  str(self.params.embedding_dim)\
-                 +'.lr_' + str(self.params.lr) + '.data_' + self.params.data + '.optim_' + self.params.optimizer + '.loss_' + self.params.loss + '.best.ckpt'
+                 +'.lr_' + str(self.params.lr) + '.data_' + self.params.data + '.optim_' +  \
+                     self.params.optimizer + '.loss_' + self.params.loss +'.batch_size_' + str(self.params.batch_size) + '.best.ckpt'
 
     def calc_loss(self, t, p_score, n_score, size, label=[]):
-        # print(p_score.shape, n_score.shape, t.shape)
         if self.loss_name == 'margin':
-            p_t = t[:size].reshape(-1, 1)
-            n_t = t[size:].reshape(-1, 1)
-            # print(n_t, p_t)
-            p_score_s = torch.gather(p_score, dim=1, index=p_t).to(self.device)
-            n_score_s = torch.gather(n_score, dim=1, index=n_t).to(self.device)
-            # print(p_score_s.shape, n_score_s.shape)
-            closs = self.loss(p_score_s, n_score_s, torch.Tensor([-1]).to(self.device)).to(self.device)
+            closs = self.model.loss(p_score, n_score, torch.Tensor([-1]).to(self.device, non_blocking=True))
         elif self.loss_name == 'bce':
-            # print(p_score.shape, label.shape)
-            closs = self.loss(p_score, label).to(self.device)
+            if self.params.mode == 'kvsall':
+                closs = self.model.loss(p_score, label)
+            elif self.params.mode == 'neg_sample':
+                # print(p_score.shape, n_score.shape)
+                closs = self.model.loss(torch.cat((p_score, n_score), -1), label)
+            elif self.params.mode ==  '1vsall':
+                closs = self.model.loss(p_score, label)
+        elif self.loss_name == 'ce':
+            closs = self.model.loss(p_score, label)
         return closs
 
             
     def train_one_step(self, h, r, t, label=[]):
         self.optimizer.zero_grad()
-        # print(h.shape, r.shape, t.shape)
         size = int(h.shape[0] / (1 + self.negative_size))
-        # print(size)
         p_score, n_score = self.model(h, r, t, size)
-        # print(p_score.shape, n_score.shape)
-        # print(t.shape, h.shape)
-        # p_score, n_score = p_score.to(self.device), n_score.to(self.device)
-        # print(p_score.shape, n_score.shape)
-        # print(label)
         loss_ = self.calc_loss(t, p_score, n_score, size, label)
         loss_.backward()
         self.optimizer.step()
@@ -80,22 +75,17 @@ class Trainer:
         valid_loss = 0
         fw1 = codecs.open(self.save_root + self.model_name + '.emb_' +  str(self.params.embedding_dim) +\
             '.lr_' + str(self.params.lr) + '.data_' + self.params.data + '.optim_' + self.params.optimizer + '.check.txt', 'a+', encoding='utf-8')
-        
         for data_val in self.valid_data_loader:
-            h, r, t, h_n, r_n, t_n, label = data_val['en1'], data_val['rel'], data_val['en2'], data_val['en1_n'], data_val['rel_n'],data_val['en2_n'], data_val['en1_neighbour']
+            h, r, t, h_n, r_n, t_n, label = data_val['h'], data_val['rel'], data_val['t'], data_val['h_n'], data_val['rel_n'],data_val['t_n'], data_val['h_neighbour_1']
             for i in range(len(h_n)):
                 h = torch.cat((h, h_n[i]), 0)
                 t = torch.cat((t, t_n[i]), 0)
                 r = torch.cat((r, r_n[i]), 0)
-            # label = self.label_transform(label).to(self.device)
-            # if self.params.loss == 'bce':
-            #     label = self.label_transform(label).to(self.device)
             batch_h, batch_t, batch_r = h.to(self.device, non_blocking=True), t.to(self.device, non_blocking=True), r.to(self.device, non_blocking=True)
             size = int(h.shape[0] / (1 + self.negative_size))
             if self.params.loss == 'bce':
                 label = label.to(self.device, non_blocking=True)
             p_score, n_score = self.model(batch_h, batch_r, batch_t, size)
-
             loss_ = self.calc_loss(batch_t, p_score, n_score, size, label)
             valid_loss += loss_.item()
         fw1.write('epoch:{}, valid loss:{:.2f}, train loss:{:.2f}, timestep:{}\n'.format(epochs, valid_loss, train_loss, ts))
@@ -106,53 +96,48 @@ class Trainer:
             fw2.write('epoch:{}, valid loss:{:.2f}, train loss:{:.2f}, timestep:{}\n'.format(epochs, valid_loss, train_loss, ts))
             self.save_check_point(epochs, isBest=True)
     
-    # change str label to torch
-    def label_transform(self,  label):
-        res = 0
-        flag = False
-        # print(label)
-        for i in label:
-            # one_hot = torch.zeros(self.ent_tot).scatter_(0, i.long(), 1)
-            #label smoothing
-            # e2_multi = ((1.0-args.label_smoothing)*e2_multi) + (1.0/e2_multi.size(1))
-            one_hot = ((1.0 - self.params.label_smoothing)*i) + (1.0/i.size(0))
-            # print(one_hot)
-            if flag:
-                res = torch.cat((res, i), -1)
-            else:
-                flag = True
-                res = one_hot
+    def eval_model(self, epochs):
+        eval_ = Tester(self.params, self.ent_tot, self.rel_tot, self.model, self.valid_data_loader)
+        raw_mrr, filter_mrr, Hist_raw_n, Hist_filter_n = eval_.test_run()
+        if filter_mrr > self.eval_mrr_filter:
+            self.eval_mrr_filter = filter_mrr
+            self.save_check_point(epochs, isBest=True)
+
+
         
-        return res
+
     
     def run(self):
         for epoch in range(self.times):
             cur_loss = 0
             self.model.train()
             for n, data_val in enumerate(self.train_data_loader):
-                h, r, t, h_n, r_n, t_n, label = data_val['en1'], data_val['rel'], data_val['en2'], data_val['en1_n'], data_val['rel_n'],data_val['en2_n'], data_val['en1_neighbour']
+                h, r, t, h_n, r_n, t_n, label = data_val['h'], data_val['rel'], data_val['t'], data_val['h_n'], data_val['rel_n'],data_val['t_n'], data_val['h_neighbour_1']
+                cbatch = h.shape[0]
                 for i in range(len(h_n)):
                     h = torch.cat((h, h_n[i]), 0)
                     t = torch.cat((t, t_n[i]), 0)
                     r = torch.cat((r, r_n[i]), 0)
-                # print(label)
-                # if self.params.loss == 'bce':
-                #     label = self.label_transform(label).to(self.device)
-                # print(label.shape)
-                # label = label.to(self.device)
-                # print(label)
+                
                 batch_h, batch_t, batch_r = h.to(self.device, non_blocking=True), t.to(self.device, non_blocking=True), r.to(self.device, non_blocking=True)
-                if self.params.loss == 'bce':
+                if self.params.loss == 'bce' and self.params.mode == 'kvsall':
                     label = label.to(self.device, non_blocking=True)
+                elif self.params.loss == 'bce' and self.params.mode == 'neg_sample':
+                    label = torch.zeros(h.shape[0]).scatter_(0, torch.arange(0, cbatch), 1).to(self.device)
+                # print(label.shape)  
                 cur_loss += self.train_one_step(batch_h, batch_r, batch_t, label)
-            
+                
                 print('{}/{}, {:.2%}'.format(n, len(self.train_data_loader), n/len(self.train_data_loader)), end='\r')
+            print('epochs:{}, loss:{:.3f}            '.format(epoch + 1, cur_loss / (epoch + 1.0)))
             self.losses.append(cur_loss)
-            if (epoch) % self.check_step == 0:
-                self.valid_model(epoch, cur_loss)
-                print('[epochs:{}, cur_loss:{:.2f}]'.format(epoch + 1, self.losses[-1]))
-            if (epoch) % self.save_step == 0:
+            # if (epoch + 1) % self.check_step == 0:
+            #     self.valid_model(epoch, cur_loss)
+            #     print('[epochs:{}, cur_loss:{:.2f}]'.format(epoch + 1, self.losses[-1]))
+            if (epoch + 1) % self.save_step == 0:
                 self.save_check_point(epoch)
+            if (epoch + 1) % self.eval_step == 0:
+                mrr = self.eval_model(epoch)
+                
         
 
 

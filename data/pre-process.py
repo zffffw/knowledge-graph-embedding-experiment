@@ -42,11 +42,10 @@ class pre_process_data:
     def create_NN(self):
         names = ['train', 'test', 'valid']
         
+        # create train/test/valid to index
         for name in names:
             fr = codecs.open(self.root + '/' + name + '2index.txt', 'r', encoding='utf-8')
-            # print(name)
             for line in fr.readlines()[1:]:
-                # print(line.strip())
                 h, r, t = line.strip().split('\t')
                 h, r, t = int(h), int(r), int(t)
                 if (h, r) not in self.left:
@@ -56,19 +55,15 @@ class pre_process_data:
                 self.left[(h, r)].append(t)
                 self.right[(r, t)].append(h)
             fr.close()
-
+        # create dictionary pickle. The structure is {id:{'h':xx, 'r':xx, 't':xx, 't_multi_1':[xx, xx, ... , xx]}}
         for name in names:
             fr = codecs.open(self.root + '/' + name + '2index.txt', 'r', encoding='utf-8')
             fw_left = codecs.open(self.root + '/' + name + '.pkl', 'wb')
-            # fw_left.write(fr.readline())
-            # print(fr, self.root + '/' + name + '2index.txt')
             dataset_ = dict()
             for n, line in enumerate(fr.readlines()[1:]):
-                # print(line.strip())
                 h, r, t = tuple(line.strip().split())
                 h, r, t = int(h), int(r), int(t)
                 dataset_[n] = {'h':h, 'r':r, 't':t, 't_multi_1':self.left[(h, r)]}
-                # fw_left.write(line.strip() + '\t' + str(self.left[(h, r)]) + '\n')
            
             pickle.dump(dataset_, fw_left)
             fr.close()
@@ -106,29 +101,11 @@ class pre_process_data:
         s1n = 0
         snn = 0
         tmp = fr.readlines()[1:]
-        for line in tmp:
-            h, r, t = line.strip().split('\t')
-            h, r, t = int(h), int(r), int(t)
-            left_n = float(self.right_rel[r]) / float(self.right_tot[r])
-            right_n = float(self.left_rel[r]) / float(self.left_tot[r])
-            # print(left_n, right_n)
-            if right_n < 1.5 and left_n < 1.5:
-                s11 += 1
-            elif right_n < 1.5 and left_n >= 1.5:
-                sn1 += 1
-            elif right_n >= 1.5 and left_n < 1.5:
-                s1n += 1
-            elif right_n >= 1.5 and left_n >= 1.5:
-                snn += 1
-        # fw11.write(str(s11) + '\n')
-        # fw1n.write(str(s1n) + '\n')
-        # fwn1.write(str(sn1) + '\n')
-        # fwnn.write(str(snn) + '\n')
         dataset_11 = dict()
         dataset_1n = dict()
         dataset_n1 = dict()
         dataset_nn = dict()
-        print('1-1:', s11, '1-N:', s1n, 'N-1:', sn1, 'N-N:', snn)
+        
         for line in tmp:
             h, r, t = line.strip().split('\t')
             h, r, t = int(h), int(r), int(t)
@@ -136,27 +113,24 @@ class pre_process_data:
             left_n = self.right_rel[r] / self.right_tot[r]
             right_n = self.left_rel[r] / self.left_tot[r]
             if right_n < 1.5 and left_n < 1.5:
-                dataset_11[n] = {'h':h, 'r':r, 't':t, 't_multi_1':self.left[(h, r)]}
-                # fw11.write(str(h) + '\t' + str(r) + '\t' + str(t) + '\t' + str(self.left[(h, r)]) + '\n')
+                dataset_11[s11] = {'h':h, 'r':r, 't':t, 't_multi_1':self.left[(h, r)]}
+                s11 += 1
             elif right_n < 1.5 and left_n >= 1.5:
-                dataset_n1[n] = {'h':h, 'r':r, 't':t, 't_multi_1':self.left[(h, r)]}
-                # fwn1.write(str(h) + '\t' + str(r) + '\t' + str(t) + '\t' + str(self.left[(h, r)]) + '\n')
+                dataset_n1[sn1] = {'h':h, 'r':r, 't':t, 't_multi_1':self.left[(h, r)]}
+                sn1 += 1
             elif right_n >= 1.5 and left_n < 1.5:
-                dataset_1n[n] = {'h':h, 'r':r, 't':t, 't_multi_1':self.left[(h, r)]}
-                # fw1n.write(str(h) + '\t' + str(r) + '\t' + str(t) + '\t' + str(self.left[(h, r)]) + '\n')
+                dataset_1n[s1n] = {'h':h, 'r':r, 't':t, 't_multi_1':self.left[(h, r)]}
+                s1n += 1
             elif right_n >= 1.5 and left_n >= 1.5:
-                dataset_nn[n] = {'h':h, 'r':r, 't':t, 't_multi_1':self.left[(h, r)]}
-                # fwnn.write(str(h) + '\t' + str(r) + '\t' + str(t) + '\t' + str(self.left[(h, r)]) + '\n')
+                dataset_nn[snn] = {'h':h, 'r':r, 't':t, 't_multi_1':self.left[(h, r)]}
+                snn += 1
         pickle.dump(dataset_11, fw11)
         pickle.dump(dataset_1n, fw1n)
         pickle.dump(dataset_n1, fwn1)
         pickle.dump(dataset_nn, fwnn)
+        print('1-1:', s11, '1-N:', s1n, 'N-1:', sn1, 'N-N:', snn)
         
         
-        # print(len(self.left_rel), len(self.right_rel))
-
-        
-        # print(self.right_rel)
 
 
 
@@ -199,14 +173,6 @@ class pre_process_data:
             tmp = line.strip().split('\t')
             self.index2item[type][int(tmp[1])] = tmp[0]
         return self.index2item[type]
-    # def create_h2t(self):
-    #     files = ['train2index.txt', 'test2index.txt', 'valid2index.txt']
-    #     for f in files:
-    #         fr = codecs.open(self.root + '/' + f, 'r', encoding='utf-8')
-    #         tmp = fr.readlines()
-    #         for line in tmp[1:]:
-    #             h, r, t = tuple(line.strip().split())
-    #             print(h, r, t)
 
     
     def run(self):
@@ -272,5 +238,5 @@ if __name__=='__main__':
 
         fr = codecs.open(args['path'] + '/' + 'train' + '.pkl', 'rb')
         t = pickle.load(fr)
-        print(len(t))
+        # print(len(t))
     

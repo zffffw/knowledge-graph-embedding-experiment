@@ -12,19 +12,30 @@ from torch.utils.data import DataLoader
 def dataset_param(dataset_name):
     return datasets_param.d[dataset_name]['ent_tot'], datasets_param.d[dataset_name]['rel_tot']
 
+def get_optimizer(model, params):
+    if params.optimizer == 'SGD':
+        opt = optim.SGD(model.parameters(), params.lr, params.momentum, weight_decay=params.regularize)
+    elif params.optimizer == 'Adam':
+        opt = optim.Adam(model.parameters(), params.lr, weight_decay=params.regularize)
+    elif params.optimizer == 'AdaGrad':
+        opt = optim.Adagrad(model.parameters(), params.lr, weight_decay=params.regularize)
+    else:
+        raise Exception('please choose correct optimizer: SGD, Adam, AdaGrad')
+    return opt
 
-def get_model(model_name, dataset_name, em_dim, p_norm, sigmoid_flag, param):
-    print('[getting model {}]'.format(model_name))
-    ent_tot, rel_tot = dataset_param(dataset_name)
-    print('# ent_tot:{}, rel_tot:{}, em_dim:{}'.format(ent_tot, rel_tot, em_dim))
+def get_model(params):
+    print('[getting model {}]'.format(params.model))
+    ent_tot, rel_tot = dataset_param(params.data)
+    model_name = params.model
+    print('# ent_tot:{}, rel_tot:{}, em_dim:{}'.format(ent_tot, rel_tot, params.embedding_dim))
     if model_name == 'TransE':
-        return TransE(ent_tot=ent_tot, rel_tot=rel_tot, em_dim=em_dim, p_norm=p_norm, sigmoid_flag=sigmoid_flag)
+        return TransE(params, ent_tot=ent_tot, rel_tot=rel_tot)
     elif model_name == 'DistMult':
-        return DistMult(ent_tot=ent_tot, rel_tot=rel_tot, em_dim=em_dim, sigmoid_flag=sigmoid_flag)
+        return DistMult(params, ent_tot=ent_tot, rel_tot=rel_tot)
     elif model_name == 'ComplEx':
-        return ComplEx(ent_tot=ent_tot, rel_tot=rel_tot, em_dim=em_dim, sigmoid_flag=sigmoid_flag)
+        return ComplEx(params, ent_tot=ent_tot, rel_tot=rel_tot)
     elif model_name == 'ConvE':
-        return ConvE(param, ent_tot=ent_tot, rel_tot=rel_tot)
+        return ConvE(params, ent_tot=ent_tot, rel_tot=rel_tot)
     else:
         raise Exception("please choose model from TransE/DistMult/ComplEx/ConvE.")
 
@@ -36,19 +47,22 @@ def get_loss(loss_name, margin):
         return nn.BCELoss()
 
 
-def get_data_loader(dataset_name, batch_size, type='train', sample_flag=True, sample_size=1, param=None):
+def get_data_loader(params, filename_prefix='train'):
+    dataset_name = params.data
+    if filename_prefix not in ['train', 'valid']:
+        mtype = 'test'
+    else:
+        mtype = filename_prefix
     ent_tot = datasets_param.d[dataset_name]['ent_tot']
     rel_tot = datasets_param.d[dataset_name]['rel_tot']
     root = datasets_param.d[dataset_name]['root'] 
-    print('[loading data {}]'.format(dataset_name))
+    print('[loading {} data {}]'.format(filename_prefix, dataset_name), end=' ')
     
-    if type in ['train', 'test', 'valid']:
-        tmp_loader = kge_data_loader(root, type + '.pkl', ent_tot, sample_flag, sample_size, param)
-    else:
-        tmp_loader = kge_data_loader(root, type + '.pkl', ent_tot, sample_flag, sample_size, param)
+    tmp_loader = kge_data_loader(params, root, filename_prefix + '.pkl', ent_tot, mode=mtype)
+
     print('[ok]')
 
-    return DataLoader(tmp_loader, batch_size=batch_size, shuffle=True, num_workers=4, pin_memory=True)
+    return DataLoader(tmp_loader, batch_size=params.batch_size, shuffle=True, num_workers=4, pin_memory=True)
 
 
 

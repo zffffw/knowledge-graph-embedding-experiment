@@ -5,7 +5,8 @@ from data.dataLoader import *
 from config import *
 from Trainer import Trainer
 from Tester import Tester
-
+import os
+import sys
 
 
 # parser define
@@ -20,6 +21,8 @@ parser.add_argument("--times", type=int, default=100,
                     help="Learning epochs(Default:100)")
 parser.add_argument("--batch_size", type=int, default=8,
                     help="Batch size")
+parser.add_argument("--test_batch_size", type=int, default=100,
+                    help="Test batch size")
 parser.add_argument("--check_step", type=int, default=50,
                     help="Interval of epochs to valid a checkpoint of the model?")
 parser.add_argument("--save_step", type=int, default=10000,
@@ -34,8 +37,8 @@ parser.add_argument("--patience", type=int, default=10,
                     help="Early stopping patience")
 parser.add_argument("--margin", type=float, default=1.0,
                     help="The margin between positive and negative samples in the max-margin loss(Defalut: 1.0)")
-parser.add_argument("--p_norm", type=int, default=1,
-                    help="The norm to use for the distance metric(Default:1)")
+parser.add_argument("--p_norm", type=int, default=2,
+                    help="The norm to use for the distance metric(Default:2)")
 parser.add_argument("--optimizer", type=str, default="Adam",
                     help="Which optimizer to use? SGD/Adam/Adagrad(Default:Adam)")
 parser.add_argument("--embedding_dim", type=int, default=200,
@@ -72,8 +75,15 @@ parser.add_argument('--mode', type=str, default='neg_sample',
                     help='train mode(neg_sample/1vsall/kvsall.(Default:neg_sample')
 parser.add_argument('--regularize', type=float, default=0.0,
                     help='regularization parameter(Default:0.0)')
+
+parser.add_argument('--continue_train', action='store_true', 
+                    help='Continue last training? Default: True')
+
+    
 params = parser.parse_args()
 
+if not os.path.exists('checkpoint/' + params.model):
+    os.mkdir('checkpoint/' + params.model)
 
 device = torch.device("cuda:" + str(params.cuda) if params.cuda > -1 else "cpu")
 
@@ -105,7 +115,10 @@ train_data_loader = get_data_loader(params, 'train')
 valid_data_loader = get_data_loader(params, 'valid')
 
 
-model = get_model(params)
+model = get_model(params).to(device)
+
+    
+
 opt = get_optimizer(model, params)
 
 print(model)
@@ -118,6 +131,11 @@ print(model)
 
 ent_tot, rel_tot = dataset_param(params.data)
 trainer = Trainer(params, ent_tot, rel_tot, train_data_loader, valid_data_loader, model, opt) 
+if params.continue_train:
+    model.load_state_dict(torch.load(trainer.save_best_name, map_location=device))
+    opt = get_optimizer(model, params)
+    trainer.optimizer = opt
+    trainer.model = model
 if params.train_flag:
     print('[begin training]')
     trainer.run()

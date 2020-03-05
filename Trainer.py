@@ -17,10 +17,9 @@ class Trainer:
         self.best_valid_loss = ''
         self.check_step = params.check_step
         self.eval_step = params.eval_step
-        self.save_root = 'checkpoint/'
+        self.save_root = 'checkpoint/' + params.model + '/'
         self.losses = []
         self.eval_mrr_filter = 0.0
-
         self.times = params.times
         self.loss_name = params.loss
         self.optimizer = optimizer
@@ -35,7 +34,7 @@ class Trainer:
 
     def calc_loss(self, t, p_score, n_score, size, label=[]):
         if self.loss_name == 'margin':
-            closs = self.model.loss(p_score, n_score, torch.Tensor([-1]).to(self.device, non_blocking=True))
+            closs = self.model.loss(p_score, n_score, torch.Tensor([-1]).to(self.device))
         elif self.loss_name == 'bce':
             if self.params.mode == 'kvsall':
                 closs = self.model.loss(p_score, label)
@@ -53,7 +52,7 @@ class Trainer:
         self.optimizer.zero_grad()
         size = int(h.shape[0] / (1 + self.negative_size))
         p_score, n_score = self.model(h, r, t, size)
-        loss_ = self.calc_loss(t, p_score, n_score, size, label)
+        loss_ = self.calc_loss(t, p_score, n_score, size, label).to(self.device)
         loss_.backward()
         self.optimizer.step()
         return loss_.item()
@@ -64,6 +63,7 @@ class Trainer:
     def save_check_point(self, epochs, isBest=False):
         if isBest:
             torch.save(self.model.state_dict(),   self.save_best_name)
+            # self.model.save_embeddings(self.save_root)
         else:
             torch.save(self.model.state_dict(),   self.save_root + self.model_name + '.emb_' +  str(self.params.embedding_dim)\
                  +'.lr_' + str(self.params.lr) + '.data_' + self.params.data + '.optim_' + self.params.optimizer + '.loss_' + self.params.loss + '.epoch_' + str(epochs) + '.ckpt')
@@ -111,6 +111,7 @@ class Trainer:
         for epoch in range(self.times):
             cur_loss = 0
             self.model.train()
+            self.model.to(self.device)
             for n, data_val in enumerate(self.train_data_loader):
                 h, r, t, h_n, r_n, t_n, label = data_val['h'], data_val['rel'], data_val['t'], data_val['h_n'], data_val['rel_n'],data_val['t_n'], data_val['h_neighbour_1']
                 cbatch = h.shape[0]
@@ -128,7 +129,7 @@ class Trainer:
                 cur_loss += self.train_one_step(batch_h, batch_r, batch_t, label)
                 
                 print('{}/{}, {:.2%}'.format(n, len(self.train_data_loader), n/len(self.train_data_loader)), end='\r')
-            print('epochs:{}, loss:{:.3f}            '.format(epoch + 1, cur_loss / (epoch + 1.0)))
+            print('epochs:{}, loss:{:.6f}            '.format(epoch + 1, cur_loss / (epoch + 1.0)))
             self.losses.append(cur_loss)
             # if (epoch + 1) % self.check_step == 0:
             #     self.valid_model(epoch, cur_loss)

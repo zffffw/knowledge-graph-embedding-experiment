@@ -37,16 +37,16 @@ class Tester(object):
         self.model.eval()
         raw_mrr = 0.0
         filter_mrr = 0.0
-        Hist_raw_n = [0.0 for i in range(10)]
-        Hist_filter_n = [0.0 for i in range(10)]
+        Hist_raw_n = [[] for i in range(10)]
+        Hist_filter_n = [[] for i in range(10)]
         tot = 0
         for n, data_val in enumerate(self.test_data_loader):
             #only use h, r, t, label
             h, r, t, h_n, r_n, t_n, label = data_val['h'], data_val['rel'], data_val['t'], data_val['h_n'], data_val['rel_n'],data_val['t_n'], data_val['h_neighbour_1']
-            h, r = h.to(self.device), r.to(self.device)
+            h, r, t = h.to(self.device), r.to(self.device), t.to(self.device)
             tot += int(h.shape[0]) # tot test size
-            all_tail_score_raw = self.model.predict(h, r, t)
-            print(all_tail_score_raw.shape)
+            all_tail_score_raw = self.model.predict(h, r, t).cpu()
+            # print(all_tail_score_raw.shape)
             all_tail_score_filter = all_tail_score_raw.clone()
             label_ = []
             for i in label:
@@ -69,18 +69,21 @@ class Tester(object):
                 filter_mrr += 1.0 / (float(filter_rank))
                 for k in range(10):
                     if filter_rank <= k + 1:
-                        Hist_filter_n[k] += 1.0
+                        Hist_filter_n[k].append(1.0)
+                    else:
+                        Hist_filter_n[k].append(0.0)
                     if raw_rank <= k + 1:
-                        Hist_raw_n[k] += 1.0
-            print('{}, {:.3f}'.format(tot, raw_mrr / ((n + 1)*100)), end='\r')
-
+                        Hist_raw_n[k].append(1.0)
+                    else:
+                        Hist_raw_n[k].append(0.0)
+            print('{}, raw_mrr:{:.3f}, filter_mrr:{:.3f}'.format(tot, raw_mrr / ((n + 1)*100), filter_mrr / ((n + 1)*100)), end='\r')
         print(tot)
         print("# raw MRR:{:.8f}".format(raw_mrr / tot))
         print("# filter MRR:{:.8f}".format(filter_mrr / tot))
         for i in hist:
-            print("# raw Hist@{} : {:.3f}".format(i, Hist_raw_n[i - 1] / tot))
+            print("# raw Hist@{} : {:.3f}".format(i, np.mean(Hist_raw_n[i - 1])))
         for i in hist:
-            print("# filter Hist@{} : {:.3f}".format(i, Hist_filter_n[i - 1] / tot))
+            print("# filter Hist@{} : {:.3f}".format(i, np.mean(Hist_filter_n[i - 1])))
         return raw_mrr, filter_mrr, Hist_raw_n, Hist_filter_n
             
 

@@ -13,6 +13,7 @@ class BaseModel(nn.Module):
         self.dim = params.embedding_dim
         self.sigmoid_flag = params.sigmoid_flag
         self.mode = params.mode
+        self.device = torch.device("cuda:" + str(params.cuda) if params.cuda > -1 else "cpu")
         if params.mode not in ['kvsall', 'neg_sample', '1vsall']:
             raise Exception('please choose correct training mode: kvsall, neg_sample')
         if params.loss == 'margin':
@@ -23,32 +24,44 @@ class BaseModel(nn.Module):
             self.loss = nn.CrossEntropyLoss(reduction='mean')
         else:
             raise Exception('loss function error: please choose loss function: bce, margin')
-    def forward(self, h, r, t, batch_size):  
-        score = self._calc(h, r, t) 
-        neg_score = None
-        if self.mode == 'neg_sample':
-            pos_score = score[0: batch_size]
-            neg_score = score[batch_size:]
-        else:
-            pos_score = score
-        return pos_score, neg_score    
+        self.loss = self.loss.to(self.device)
 
-    def predict(self, h, r, t):
-        score = self._calc(h, r, t, predict=True)
-        return score
+# class embedding(nn.Module):
+#     def __init__(self, ent_tot, dim, padding_idx=0):
+#         super(embedding, self).__init__()
+#         self.emb = nn.Embedding(ent_tot, dim, padding_idx=padding_idx)
+#     def init_weights(self, xv=True):
+#         if xv:
+#             nn.init.xavier_uniform_(self.emb.weight.data)
+#         else:
+#             nn.init.uniform_(self.emb.weight.data)
+
+
+
+#     def forward(self, batch):
+#         return self.emb(batch)
+#     def save_emb(self, path):
+#         torch.save(self.emb.state_dict(), path)
+#     def load_emb(self, path):
+#         self.emb.load_state_dict(torch.load(path))
+
 
 class TransE(BaseModel):
     def __init__(self, params, ent_tot, rel_tot):
         super(TransE, self).__init__(params, ent_tot, rel_tot)
+        self.root_dir = 'checkpoint/TransE' 
+        self.params = params
         self.p_norm = params.p_norm
         self.ent_embeddings = nn.Embedding(ent_tot, self.dim, padding_idx=0)
         self.rel_embeddings = nn.Embedding(rel_tot, self.dim, padding_idx=0)
         self.init_weights()
-        
     def init_weights(self):
         nn.init.xavier_uniform_(self.ent_embeddings.weight.data)
         nn.init.xavier_uniform_(self.rel_embeddings.weight.data)
-        
+    
+    def save_embeddings(self, root_dir):
+        torch.save(self.ent_embeddings.state_dict(), self.root_dir + '/' + self.params.data + '_ent_emb.pkl')
+        torch.save(self.rel_embeddings.state_dict(), self.root_dir + '/' + self.params.data + '_rel_emb.pkl')
 
 
     def _calc(self, h, r, t, predict=False):

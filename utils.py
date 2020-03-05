@@ -61,8 +61,10 @@ def get_data_loader(params, filename_prefix='train'):
     tmp_loader = kge_data_loader(params, root, filename_prefix + '.pkl', ent_tot, mode=mtype)
 
     print('[ok]')
-
-    return DataLoader(tmp_loader, batch_size=params.batch_size, shuffle=True, num_workers=4, pin_memory=True)
+    if filename_prefix == 'train':
+        return DataLoader(tmp_loader, batch_size=params.batch_size, shuffle=True, num_workers=4, pin_memory=True)
+    else:
+        return DataLoader(tmp_loader, batch_size=params.test_batch_size, shuffle=True, num_workers=4, pin_memory=True)
 
 
 

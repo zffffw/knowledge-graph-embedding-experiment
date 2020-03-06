@@ -7,6 +7,21 @@ from config import *
 from data.dataLoader import *
 from torch.utils.data import DataLoader
 
+def get_save_model_path(params):
+    data = params.data
+    model = params.model
+    optim = params.optimizer
+    lr = str(params.lr)
+    mode = params.mode
+    margin = str(params.margin)
+    p_norm = str(params.p_norm)
+    emb_dim = str(params.embedding_dim)
+
+    loss = params.loss
+    name = '_'.join([optim, lr, mode, loss, 'embdim', emb_dim])
+    print(name)
+    
+
 
 
 def dataset_param(dataset_name):
@@ -65,7 +80,5 @@ def get_data_loader(params, filename_prefix='train'):
         return DataLoader(tmp_loader, batch_size=params.batch_size, shuffle=True, num_workers=4, pin_memory=True)
     else:
         return DataLoader(tmp_loader, batch_size=params.test_batch_size, shuffle=True, num_workers=4, pin_memory=True)
-
-
 
 

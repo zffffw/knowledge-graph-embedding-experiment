@@ -41,7 +41,8 @@ class pre_process_data:
 
     def create_NN(self):
         names = ['train', 'test', 'valid']
-        
+        multi_left = {'train':{}, 'test':{}, 'valid':{}}
+        multi_right = {'train':{}, 'test':{}, 'valid':{}}
         # create train/test/valid to index
         for name in names:
             fr = codecs.open(self.root + '/' + name + '2index.txt', 'r', encoding='utf-8')
@@ -52,6 +53,12 @@ class pre_process_data:
                     self.left[(h, r)] = []
                 if (r, t) not in self.right:
                     self.right[(r, t)] = []
+                if (h, r) not in multi_left[name]:
+                    multi_left[name][(h, r)] = []
+                if (r, t) not in multi_right[name]:
+                    multi_right[name][(r, t)] = []
+                multi_left[name][(h, r)].append(t)
+                multi_right[name][(r, t)].append(h)
                 self.left[(h, r)].append(t)
                 self.right[(r, t)].append(h)
             fr.close()
@@ -63,8 +70,7 @@ class pre_process_data:
             for n, line in enumerate(fr.readlines()[1:]):
                 h, r, t = tuple(line.strip().split())
                 h, r, t = int(h), int(r), int(t)
-                dataset_[n] = {'h':h, 'r':r, 't':t, 't_multi_1':self.left[(h, r)]}
-           
+                dataset_[n] = {'h':h, 'r':r, 't':t, 't_multi_1':multi_left[name][(h, r)], 'h_multi_1':multi_right[name][(r, t)]}
             pickle.dump(dataset_, fw_left)
             fr.close()
             fw_left.close()
@@ -113,16 +119,16 @@ class pre_process_data:
             left_n = self.right_rel[r] / self.right_tot[r]
             right_n = self.left_rel[r] / self.left_tot[r]
             if right_n < 1.5 and left_n < 1.5:
-                dataset_11[s11] = {'h':h, 'r':r, 't':t, 't_multi_1':self.left[(h, r)]}
+                dataset_11[s11] = {'h':h, 'r':r, 't':t, 't_multi_1':self.left[(h, r)], 'h_multi_1':self.right[(r, t)]}
                 s11 += 1
             elif right_n < 1.5 and left_n >= 1.5:
-                dataset_n1[sn1] = {'h':h, 'r':r, 't':t, 't_multi_1':self.left[(h, r)]}
+                dataset_n1[sn1] = {'h':h, 'r':r, 't':t, 't_multi_1':self.left[(h, r)], 'h_multi_1':self.right[(r, t)]}
                 sn1 += 1
             elif right_n >= 1.5 and left_n < 1.5:
-                dataset_1n[s1n] = {'h':h, 'r':r, 't':t, 't_multi_1':self.left[(h, r)]}
+                dataset_1n[s1n] = {'h':h, 'r':r, 't':t, 't_multi_1':self.left[(h, r)], 'h_multi_1':self.right[(r, t)]}
                 s1n += 1
             elif right_n >= 1.5 and left_n >= 1.5:
-                dataset_nn[snn] = {'h':h, 'r':r, 't':t, 't_multi_1':self.left[(h, r)]}
+                dataset_nn[snn] = {'h':h, 'r':r, 't':t, 't_multi_1':self.left[(h, r)], 'h_multi_1':self.right[(r, t)]}
                 snn += 1
         pickle.dump(dataset_11, fw11)
         pickle.dump(dataset_1n, fw1n)
@@ -232,11 +238,24 @@ if __name__=='__main__':
     args4 = {'path':'FB15k-237', 'name':'', 'name_list':['fb237-train.txt', 'fb237-test.txt', 'fb237-valid.txt']}
     args5 = {'path':'FB15k', 'name':'', 'name_list':['freebase_mtr100_mte100-train.txt', 'freebase_mtr100_mte100-test.txt', 'freebase_mtr100_mte100-valid.txt']}
     argsn = [args1, args2, args3, args4, args5]
-    for args in argsn[:]:
-        t = pre_process_data(args['path'], args['name'], args['name_list'])
-        t.run()
+    # for args in argsn[:1]:
+    #     # t = pre_process_data(args['path'], args['name'], args['name_list'])
+    #     # t.run()
 
-        fr = codecs.open(args['path'] + '/' + 'train' + '.pkl', 'rb')
-        t = pickle.load(fr)
-        # print(len(t))
+    #     fr = codecs.open(args['path'] + '/' + 'train' + '.pkl', 'rb')
+    #     t = pickle.load(fr)
+    #     for i in t:
+    #         print(t[i])
     
+    # fr1 = codecs.open('FB15k/train2index.txt')
+    # fr2 = codecs.open('FB15k/test2index.txt')
+    # tmp1 = fr1.readlines()[1:]
+    # tmp2 = fr2.readlines()[1:]
+    # dict1 = {}
+    # for i in tmp1:
+    #     h, r, t = tuple(i.strip().split())
+    #     dict1[(h, r, t)] = 1
+    # for i in tmp2:
+    #     h, r, t = tuple(i.strip().split())
+    #     if (h, r, t) in dict1:
+    #         print(111111)

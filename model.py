@@ -49,7 +49,7 @@ class BaseModel(nn.Module):
 class TransE(BaseModel):
     def __init__(self, params, ent_tot, rel_tot):
         super(TransE, self).__init__(params, ent_tot, rel_tot)
-        self.root_dir = 'checkpoint/TransE' 
+        self.root_dir = 'checkpoint/TransE/' + params.data 
         self.params = params
         self.p_norm = params.p_norm
         self.ent_embeddings = nn.Embedding(ent_tot, self.dim, padding_idx=0)

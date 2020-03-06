@@ -82,8 +82,13 @@ parser.add_argument('--continue_train', action='store_true',
     
 params = parser.parse_args()
 
+# get_save_model_path(params)
+# input()
+
 if not os.path.exists('checkpoint/' + params.model):
     os.mkdir('checkpoint/' + params.model)
+if not os.path.exists('checkpoint/' + params.model + '/' + params.data):
+    os.mkdir('checkpoint/' + params.model + '/' + params.data)
 
 device = torch.device("cuda:" + str(params.cuda) if params.cuda > -1 else "cpu")
 

@@ -32,6 +32,7 @@ class Tester(object):
         self.rel_tot = rel_tot
         self.head_predict, self.tail_predict = get_triples_from_all_datasets(datasets_param.d[params.data]['root'])
         self.params = params
+        self.test_batch_size = params.test_batch_size
     
     def test_run(self, type='head', hist=[1, 3, 10]):
         self.model.eval()
@@ -76,7 +77,7 @@ class Tester(object):
                         Hist_raw_n[k].append(1.0)
                     else:
                         Hist_raw_n[k].append(0.0)
-            print('{}, raw_mrr:{:.3f}, filter_mrr:{:.3f}'.format(tot, raw_mrr / ((n + 1)*100), filter_mrr / ((n + 1)*100)), end='\r')
+            print('{}, raw_mrr:{:.3f}, filter_mrr:{:.3f}'.format(tot, raw_mrr / ((n + 1)*self.test_batch_size), filter_mrr / ((n + 1)*self.test_batch_size)), end='\r')
         print(tot)
         print("# raw MRR:{:.8f}".format(raw_mrr / tot))
         print("# filter MRR:{:.8f}".format(filter_mrr / tot))

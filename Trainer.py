@@ -17,7 +17,7 @@ class Trainer:
         self.best_valid_loss = ''
         self.check_step = params.check_step
         self.eval_step = params.eval_step
-        self.save_root = 'checkpoint/' + params.model + '/'
+        self.save_root = 'checkpoint/' + params.model + '/' + params.data + '/'
         self.losses = []
         self.eval_mrr_filter = 0.0
         self.times = params.times
@@ -34,6 +34,8 @@ class Trainer:
 
     def calc_loss(self, t, p_score, n_score, size, label=[]):
         if self.loss_name == 'margin':
+            n_score = n_score.reshape(-1, self.negative_size)
+            p_score = p_score.reshape(-1, 1)
             closs = self.model.loss(p_score, n_score, torch.Tensor([-1]).to(self.device))
         elif self.loss_name == 'bce':
             if self.params.mode == 'kvsall':
@@ -52,6 +54,7 @@ class Trainer:
         self.optimizer.zero_grad()
         size = int(h.shape[0] / (1 + self.negative_size))
         p_score, n_score = self.model(h, r, t, size)
+        # print(p_score.shape, n_score.shape)
         loss_ = self.calc_loss(t, p_score, n_score, size, label).to(self.device)
         loss_.backward()
         self.optimizer.step()
@@ -63,38 +66,34 @@ class Trainer:
     def save_check_point(self, epochs, isBest=False):
         if isBest:
             torch.save(self.model.state_dict(),   self.save_best_name)
-            # self.model.save_embeddings(self.save_root)
-        else:
-            torch.save(self.model.state_dict(),   self.save_root + self.model_name + '.emb_' +  str(self.params.embedding_dim)\
-                 +'.lr_' + str(self.params.lr) + '.data_' + self.params.data + '.optim_' + self.params.optimizer + '.loss_' + self.params.loss + '.epoch_' + str(epochs) + '.ckpt')
-        
+            # self.model.save_embeddings(self.save_root)    
     
-    def valid_model(self, epochs, train_loss):
-        ts = int(time.time())
-        self.model.eval()
-        valid_loss = 0
-        fw1 = codecs.open(self.save_root + self.model_name + '.emb_' +  str(self.params.embedding_dim) +\
-            '.lr_' + str(self.params.lr) + '.data_' + self.params.data + '.optim_' + self.params.optimizer + '.check.txt', 'a+', encoding='utf-8')
-        for data_val in self.valid_data_loader:
-            h, r, t, h_n, r_n, t_n, label = data_val['h'], data_val['rel'], data_val['t'], data_val['h_n'], data_val['rel_n'],data_val['t_n'], data_val['h_neighbour_1']
-            for i in range(len(h_n)):
-                h = torch.cat((h, h_n[i]), 0)
-                t = torch.cat((t, t_n[i]), 0)
-                r = torch.cat((r, r_n[i]), 0)
-            batch_h, batch_t, batch_r = h.to(self.device, non_blocking=True), t.to(self.device, non_blocking=True), r.to(self.device, non_blocking=True)
-            size = int(h.shape[0] / (1 + self.negative_size))
-            if self.params.loss == 'bce':
-                label = label.to(self.device, non_blocking=True)
-            p_score, n_score = self.model(batch_h, batch_r, batch_t, size)
-            loss_ = self.calc_loss(batch_t, p_score, n_score, size, label)
-            valid_loss += loss_.item()
-        fw1.write('epoch:{}, valid loss:{:.2f}, train loss:{:.2f}, timestep:{}\n'.format(epochs, valid_loss, train_loss, ts))
-        if self.best_valid_loss == '' or self.best_valid_loss > valid_loss:
-            self.best_valid_loss = valid_loss
-            fw2 = codecs.open(self.save_root + self.model_name + '.emb_' +  str(self.params.embedding_dim) +\
-            '.lr_' + str(self.params.lr) + '.data_' + self.params.data + '.optim_' + self.params.optimizer + '.bset_check.txt', 'a+', encoding='utf-8')
-            fw2.write('epoch:{}, valid loss:{:.2f}, train loss:{:.2f}, timestep:{}\n'.format(epochs, valid_loss, train_loss, ts))
-            self.save_check_point(epochs, isBest=True)
+    # def valid_model(self, epochs, train_loss):
+    #     ts = int(time.time())
+    #     self.model.eval()
+    #     valid_loss = 0
+    #     fw1 = codecs.open(self.save_root + self.model_name + '.emb_' +  str(self.params.embedding_dim) +\
+    #         '.lr_' + str(self.params.lr) + '.data_' + self.params.data + '.optim_' + self.params.optimizer + '.check.txt', 'a+', encoding='utf-8')
+    #     for data_val in self.valid_data_loader:
+    #         h, r, t, h_n, r_n, t_n, label = data_val['h'], data_val['rel'], data_val['t'], data_val['h_n'], data_val['rel_n'],data_val['t_n'], data_val['h_neighbour_1']
+    #         for i in range(len(h_n)):
+    #             h = torch.cat((h, h_n[i]), 0)
+    #             t = torch.cat((t, t_n[i]), 0)
+    #             r = torch.cat((r, r_n[i]), 0)
+    #         batch_h, batch_t, batch_r = h.to(self.device, non_blocking=True), t.to(self.device, non_blocking=True), r.to(self.device, non_blocking=True)
+    #         size = int(h.shape[0] / (1 + self.negative_size))
+    #         if self.params.loss == 'bce':
+    #             label = label.to(self.device, non_blocking=True)
+    #         p_score, n_score = self.model(batch_h, batch_r, batch_t, size)
+    #         loss_ = self.calc_loss(batch_t, p_score, n_score, size, label)
+    #         valid_loss += loss_.item()
+    #     fw1.write('epoch:{}, valid loss:{:.2f}, train loss:{:.2f}, timestep:{}\n'.format(epochs, valid_loss, train_loss, ts))
+    #     if self.best_valid_loss == '' or self.best_valid_loss > valid_loss:
+    #         self.best_valid_loss = valid_loss
+    #         fw2 = codecs.open(self.save_root + self.model_name + '.emb_' +  str(self.params.embedding_dim) +\
+    #         '.lr_' + str(self.params.lr) + '.data_' + self.params.data + '.optim_' + self.params.optimizer + '.bset_check.txt', 'a+', encoding='utf-8')
+    #         fw2.write('epoch:{}, valid loss:{:.2f}, train loss:{:.2f}, timestep:{}\n'.format(epochs, valid_loss, train_loss, ts))
+    #         self.save_check_point(epochs, isBest=True)
     
     def eval_model(self, epochs):
         eval_ = Tester(self.params, self.ent_tot, self.rel_tot, self.model, self.valid_data_loader)

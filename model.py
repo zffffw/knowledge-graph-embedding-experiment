@@ -162,8 +162,8 @@ class ConvE(BaseModel):
         self.init_weights()
 
     def init_weights(self):
-        xavier_normal_(self.ent_embeddings.weight.data)
-        xavier_normal_(self.rel_embeddings.weight.data)
+        nn.init.xavier_normal_(self.ent_embeddings.weight.data)
+        nn.init.xavier_normal_(self.rel_embeddings.weight.data)
     
     def _calc(self, h, rel, t, predict=False):
         h_embed= self.ent_embeddings(h).view(-1, 1, self.emb_dim1, self.emb_dim2)
@@ -188,12 +188,13 @@ class ConvE(BaseModel):
             score = x
             
         elif self.mode == 'neg_sample':
-            # print(self.b.shape)
             t_embed = self.ent_embeddings(t)
             x = torch.sum(x*t_embed, -1)
+            # print(x.shape)
             tmp_b = self.b[h]
+            # print(tmp_b.shape)
             x += tmp_b
-            score = torch.sum(x, -1)
+            score = x
         
         if self.sigmoid_flag:
             score = torch.sigmoid(x)
@@ -202,6 +203,7 @@ class ConvE(BaseModel):
     def forward(self, h, r, t, batch_size):  
         score = self._calc(h, r, t) 
         neg_score = None
+        # print(score.shape)
         if self.mode == 'neg_sample':
             pos_score = score[0: batch_size]
             neg_score = score[batch_size:]

@@ -59,15 +59,15 @@ parser.add_argument('--train_flag', action='store_true',
                     help='whrther train or not')
 parser.add_argument('--sigmoid_flag', action='store_true',
                     help='whether to use sigmoid at the end or the model.')
-parser.add_argument('--input_drop', type=float, default=0.2,
+parser.add_argument('--input_drop', type=float, default=0.1,
                     help='input dropout layer param for ConvE')
-parser.add_argument('--hidden_drop', type=float, default=0.3,
+parser.add_argument('--hidden_drop', type=float, default=0.1,
                     help='hidden dropout layer param for ConvE')
-parser.add_argument('--feat_drop', type=float, default=0.2,
+parser.add_argument('--feat_drop', type=float, default=0.1,
                     help='feature map dropout layer param for ConvE')
-parser.add_argument('--embedding-shape1', type=int, default=20,
+parser.add_argument('--embedding-shape1', type=int, default=10,
                     help='The first dimension of the reshaped 2D embedding. The second dimension is infered. Default: 20')
-parser.add_argument('--hidden_size', type=int, default=9728,
+parser.add_argument('--hidden_size', type=int, default=4608,
                     help='The side of the hidden layer. The required size changes with the size of the embeddings. Default: 9728 (embedding size 200).')
 parser.add_argument('--use-bias', action='store_true', 
                     help='Use a bias in the convolutional layer. Default: True')
@@ -120,6 +120,7 @@ train_data_loader = get_data_loader(params, 'train')
 valid_data_loader = get_data_loader(params, 'valid')
 
 
+
 model = get_model(params).to(device)
 
     
@@ -137,10 +138,7 @@ print(model)
 ent_tot, rel_tot = dataset_param(params.data)
 trainer = Trainer(params, ent_tot, rel_tot, train_data_loader, valid_data_loader, model, opt) 
 if params.continue_train:
-    model.load_state_dict(torch.load(trainer.save_best_name, map_location=device))
-    opt = get_optimizer(model, params)
-    trainer.optimizer = opt
-    trainer.model = model
+    trainer.model.load_state_dict(torch.load(trainer.save_best_name, map_location=device))
 if params.train_flag:
     print('[begin training]')
     trainer.run()
@@ -162,8 +160,8 @@ if params.test_flag:
             test_data_loader = get_data_loader(params, tt)
             ent_tot, rel_tot = dataset_param(params.data)
             tester = Tester(params, ent_tot, rel_tot, model, test_data_loader)
-            tester.test_run(type='head')
-        except:
+            tester.test_run(ttype='tail')
+        except Exception as e:
             print('no test data {}...'.format(tt))
         
         

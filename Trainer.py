@@ -97,7 +97,9 @@ class Trainer:
     
     def eval_model(self, epochs):
         eval_ = Tester(self.params, self.ent_tot, self.rel_tot, self.model, self.valid_data_loader)
-        raw_mrr, filter_mrr, Hist_raw_n, Hist_filter_n = eval_.test_run()
+        # raw_mrr1, filter_mrr1, Hist_raw_n, Hist_filter_n = eval_.test_run(ttype='head')
+        raw_mrr, filter_mrr, Hist_raw_n, Hist_filter_n = eval_.test_run(ttype='tail')
+        
         if filter_mrr > self.eval_mrr_filter:
             self.eval_mrr_filter = filter_mrr
             self.save_check_point(epochs, isBest=True)

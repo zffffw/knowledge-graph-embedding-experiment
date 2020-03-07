@@ -34,7 +34,18 @@ class Tester(object):
         self.params = params
         self.test_batch_size = params.test_batch_size
     
-    def test_run(self, type='head', hist=[1, 3, 10]):
+    def replace_all_entities(self, h, r, t, rtype = 'head'):
+        if rtype == 'head':
+            h = torch.arange(0, self.ent_tot).reshape(1, -1).repeat(r.shape[0], 1)
+            r = r.reshape(-1, 1).repeat(1, self.ent_tot)
+            t = t.reshape(-1, 1).repeat(1, self.ent_tot)
+        elif rtype == 'tail':
+            t = torch.arange(0, self.ent_tot).reshape(1, -1).repeat(r.shape[0], 1)
+            r = r.reshape(-1, 1).repeat(1, self.ent_tot)
+            h = h.reshape(-1, 1).repeat(1, self.ent_tot)
+        return h, r, t
+
+    def test_run(self, ttype='tail', hist=[1, 3, 10]):
         self.model.eval()
         raw_mrr = 0.0
         filter_mrr = 0.0
@@ -43,29 +54,55 @@ class Tester(object):
         tot = 0
         for n, data_val in enumerate(self.test_data_loader):
             #only use h, r, t, label
-            h, r, t, h_n, r_n, t_n, label = data_val['h'], data_val['rel'], data_val['t'], data_val['h_n'], data_val['rel_n'],data_val['t_n'], data_val['h_neighbour_1']
-            h, r, t = h.to(self.device), r.to(self.device), t.to(self.device)
-            tot += int(h.shape[0]) # tot test size
-            all_tail_score_raw = self.model.predict(h, r, t).cpu()
-            # print(all_tail_score_raw.shape)
-            all_tail_score_filter = all_tail_score_raw.clone()
+            h, r, t, tail_label, head_label = data_val['h'], data_val['rel'], data_val['t'], data_val['h_neighbour_1'], data_val['t_neighbour_1']
+            # all_h, all_r, all_t = self.replace_all_entities(h, r, t, ttype)
+            # all_h, all_r, all_t = all_h.to(self.device), all_r.to(self.device), all_t.to(self.device)
+            # print(h, r, t)
+            # print(all_h, all_r, all_t)
+            # print(all_h.shape, all_r.shape, all_t.shape)
+            cur_batch_size = h.shape[0]
+            tot += int(cur_batch_size) # tot test size
+            all_score_raw = self.model.predict(h, r, t)
+            # for i in range(cur_batch_size):
+            #     tmp = self.model.predict(all_h[i], all_r[i], all_t[i])
+            #     if i == 0:
+            #         all_score_raw = tmp
+            #     else:
+            #         all_score_raw = torch.cat((all_score_raw, tmp), -1)
+            # print(all_score_raw)
+            all_score_raw = all_score_raw.reshape(cur_batch_size, -1).cpu()
+            # print(all_score_raw)
+            all_score_filter = all_score_raw.clone()
             label_ = []
-            for i in label:
+            
+            # print(all_score_raw.shape, all_score_filter.shape)
+            # print(target)
+            for i in tail_label:
                 label_.append(eval(i))
-            for i in range(t.shape[0]):
-                target = all_tail_score_filter[i][t[i].item()].item()
+            for i in range(cur_batch_size):
+                # if ttype == 'tail':
+                #     target = t[i].item()
+                # elif ttype == 'head':
+                #     target = h[i].item()
+                target = t[i].item()
+                tmp = all_score_filter[i][target].item()
                 if self.params.loss in ['margin']:
-                    all_tail_score_filter[i][label_[i]] = 10000
+                    all_score_filter[i][label_[i]] = 10000
                 elif self.params.loss in ['bce', 'ce']:
-                    all_tail_score_filter[i][label_[i]] = 0.0
-                all_tail_score_filter[i][t[i]] = target
+                    all_score_filter[i][label_[i]] = 0.0
+                all_score_filter[i][target] = tmp
             descending = True if self.params.loss in ['bce', 'ce'] else False
-            sorted_data_raw, indices_raw = torch.sort(all_tail_score_raw, -1, descending=descending)
-            sorted_data_filter, indices_filter = torch.sort(all_tail_score_filter, -1, descending=descending)
+            sorted_data_raw, indices_raw = torch.sort(all_score_raw, -1, descending=descending)
+            sorted_data_filter, indices_filter = torch.sort(all_score_filter, -1, descending=descending)
             # print(sorted_data_filter.shape)
-            for i in range(t.shape[0]):
-                raw_rank = np.argwhere(indices_raw[i] == t[i].item())[0][0] + 1.0
-                filter_rank = np.argwhere(indices_filter[i] == t[i].item())[0][0] + 1.0
+            for i in range(cur_batch_size):
+                # if ttype == 'tail':
+                #     target = t[i].item()
+                # elif ttype == 'head':
+                #     target = h[i].item()
+                target = t[i].item()
+                raw_rank = np.argwhere(indices_raw[i] == target)[0][0] + 1.0
+                filter_rank = np.argwhere(indices_filter[i] == target)[0][0] + 1.0
                 raw_mrr += 1.0 / (float(raw_rank))
                 filter_mrr += 1.0 / (float(filter_rank))
                 for k in range(10):
@@ -77,7 +114,7 @@ class Tester(object):
                         Hist_raw_n[k].append(1.0)
                     else:
                         Hist_raw_n[k].append(0.0)
-            print('{}, raw_mrr:{:.3f}, filter_mrr:{:.3f}'.format(tot, raw_mrr / ((n + 1)*self.test_batch_size), filter_mrr / ((n + 1)*self.test_batch_size)), end='\r')
+            print('{}, raw_mrr:{:.3f}, filter_mrr:{:.3f}'.format(tot, raw_mrr / tot, filter_mrr / tot), end='\r')
         print(tot)
         print("# raw MRR:{:.8f}".format(raw_mrr / tot))
         print("# filter MRR:{:.8f}".format(filter_mrr / tot))

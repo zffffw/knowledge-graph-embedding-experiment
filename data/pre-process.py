@@ -67,14 +67,20 @@ class pre_process_data:
             fr = codecs.open(self.root + '/' + name + '2index.txt', 'r', encoding='utf-8')
             fw_left = codecs.open(self.root + '/' + name + '.pkl', 'wb')
             dataset_ = dict()
+
             for n, line in enumerate(fr.readlines()[1:]):
                 h, r, t = tuple(line.strip().split())
                 h, r, t = int(h), int(r), int(t)
-                dataset_[n] = {'h':h, 'r':r, 't':t, 't_multi_1':multi_left[name][(h, r)], 'h_multi_1':multi_right[name][(r, t)]}
+                if name == 'train':
+                    dataset_[n] = {'h':h, 'r':r, 't':t, 't_multi_1':multi_left[name][(h, r)], 'h_multi_1':multi_right[name][(r, t)]}
+                else:
+                    dataset_[n] = {'h':h, 'r':r, 't':t, 't_multi_1':self.left[(h, r)], 'h_multi_1':self.right[(r, t)]}
+            
             pickle.dump(dataset_, fw_left)
             fr.close()
             fw_left.close()
-
+        print(multi_left['train'][(218, 0)], multi_left['test'][(218, 0)])
+        print(self.left[(218, 0)])
 
              
 
@@ -238,24 +244,24 @@ if __name__=='__main__':
     args4 = {'path':'FB15k-237', 'name':'', 'name_list':['fb237-train.txt', 'fb237-test.txt', 'fb237-valid.txt']}
     args5 = {'path':'FB15k', 'name':'', 'name_list':['freebase_mtr100_mte100-train.txt', 'freebase_mtr100_mte100-test.txt', 'freebase_mtr100_mte100-valid.txt']}
     argsn = [args1, args2, args3, args4, args5]
-    # for args in argsn[:1]:
-    #     # t = pre_process_data(args['path'], args['name'], args['name_list'])
-    #     # t.run()
+    for args in argsn[:1]:
+        t = pre_process_data(args['path'], args['name'], args['name_list'])
+        t.run()
 
-    #     fr = codecs.open(args['path'] + '/' + 'train' + '.pkl', 'rb')
-    #     t = pickle.load(fr)
-    #     for i in t:
-    #         print(t[i])
+        fr = codecs.open(args['path'] + '/' + 'test' + '.pkl', 'rb')
+        t = pickle.load(fr)
+        fr.close()
+        dict1 = {}
+        for i in t:
+            print(t[i])
+            # if t[i]['h'] == 218 and t[i]['r'] == 0:
+            #     print(t[i])
+        # fr = codecs.open(args['path'] + '/' + 'test' + '.pkl', 'rb')
+        # t = pickle.load(fr)
+        # fr.close()
+        # for i in t:
+        #     tmp = t[i]
+        #     if (tmp['h'], tmp['r']) in dict1:
+        #         print(tmp['h'], tmp['r'])
+        #         print(tmp['h_multi_1'], dict1[(tmp['h'], tmp['r'])])
     
-    # fr1 = codecs.open('FB15k/train2index.txt')
-    # fr2 = codecs.open('FB15k/test2index.txt')
-    # tmp1 = fr1.readlines()[1:]
-    # tmp2 = fr2.readlines()[1:]
-    # dict1 = {}
-    # for i in tmp1:
-    #     h, r, t = tuple(i.strip().split())
-    #     dict1[(h, r, t)] = 1
-    # for i in tmp2:
-    #     h, r, t = tuple(i.strip().split())
-    #     if (h, r, t) in dict1:
-    #         print(111111)

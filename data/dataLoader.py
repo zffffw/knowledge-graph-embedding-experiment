@@ -48,6 +48,8 @@ class kge_data_loader(Dataset):
         h_n = []
         t_n = []
         r_n = []
+        if self.ttype == 'test' or self.ttype == 'valid':
+            return h, r, t, h_n, r_n, t_n
         for n in range(self.negative_sample_size):
             h_ = h
             r = r
@@ -73,18 +75,20 @@ class kge_data_loader(Dataset):
         r = int(self.data_frame[idx]['r'])
         h, r, t, h_n, r_n, t_n = self.sample_neg(idx)
         try:
-            label = []
+            t_label = []
+            h_label = []
             if self.ttype == 'train':
                 if self.params.loss == 'bce':
-                    label = self.label_transform(idx)
+                    t_label = self.label_transform(idx)
                 elif self.params.loss == 'ce':
                     if self.mode == '1vsall':
-                        label = self.data_frame[idx]['t']
+                        t_label = self.data_frame[idx]['t']
             elif self.ttype == 'test' or self.ttype == 'valid':
-                label = str(self.data_frame[idx]['t_multi_1'])
+                t_label = str(self.data_frame[idx]['t_multi_1'])
+                h_label = str(self.data_frame[idx]['h_multi_1'])
             else:
                 raise Exception("dataLoader Error: the mode of dataset must be train, valid or test")
-            return {'h':h, 't':t, 'rel':r, 'h_n':h_n, 't_n':t_n, 'rel_n':r_n, 'h_neighbour_1':label}
+            return {'h':h, 't':t, 'rel':r, 'h_n':h_n, 't_n':t_n, 'rel_n':r_n, 'h_neighbour_1':t_label, 't_neighbour_1':h_label}
         except Exception as e:
             raise Exception(e)
             

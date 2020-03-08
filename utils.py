@@ -6,6 +6,11 @@ from model import *
 from config import *
 from data.dataLoader import *
 from torch.utils.data import DataLoader
+from sklearn.cluster import KMeans
+import pickle
+import numpy as np
+
+
 
 def get_save_model_path(params):
     data = params.data
@@ -82,3 +87,35 @@ def get_data_loader(params, filename_prefix='train'):
         return DataLoader(tmp_loader, batch_size=params.test_batch_size, shuffle=True, num_workers=4, pin_memory=True)
 
 
+def get_ent_cluster_indices(dataset, dim, c):
+    fr = open('entity_cluster.pkl', 'rb')
+    pk = pickle.load(fr)
+    fr.close()
+    return pk['fb']['dim_' + '100' + '_c_' + str(c)]
+
+'''
+ emb is nn.Embedding.
+
+'''
+def cal_ent_cluster_labels(emb, n_c):
+    np_emb = emb.weight.data.numpy()
+    estimator = KMeans(n_clusters=n_c)
+    estimator.fit(np_emb)
+    return estimator.labels_
+
+
+def create_entity_cluster(embed_set, cluster_C_set = [[500, 1000, 2000, 4000], [1000, 2000, 4000, 8000]]):
+    fb_ent_emb = embed_set[0]
+    wn_ent_emb = embed_set[1]
+    C_1 = cluster_C_set[0]
+    C_2 = cluster_C_set[1]
+    tmp = {'fb':{}, 'wn':{}}
+    for i in C_1:
+        tmp['fb']['dim_100_c_' + str(i)] = get_ent_cluster_labels(fb_ent_emb, i)
+    for i in C_2:
+        tmp['wn']['dim_100_c_' + str(i)] = get_ent_cluster_labels(wn_ent_emb, i)
+    fw = open('entity_cluster.pkl', 'wb')
+    pickle.dump(tmp, fw)
+
+def create_entity_sub_cluster():
+    pass

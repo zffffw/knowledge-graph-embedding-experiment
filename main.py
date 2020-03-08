@@ -77,8 +77,13 @@ parser.add_argument('--regularize', type=float, default=0.0,
                     help='regularization parameter(Default:0.0)')
 
 parser.add_argument('--continue_train', action='store_true', 
-                    help='Continue last training? Default: True')
+                    help='Continue last training? Default: False')
 
+parser.add_argument('--entity_cluster_num', type=int, default=0, 
+                    help='If add entity cluster information or not? Default: 0')
+
+                
+                
     
 params = parser.parse_args()
 
@@ -122,6 +127,7 @@ valid_data_loader = get_data_loader(params, 'valid')
 
 
 model = get_model(params).to(device)
+
 
     
 

@@ -3,7 +3,7 @@ import torch.nn as nn
 from torch.nn import functional as F, Parameter
 import numpy as np
 import time
-
+import utils
 class BaseModel(nn.Module):
     def __init__(self, params, ent_tot, rel_tot):
         super(BaseModel, self).__init__()
@@ -54,14 +54,27 @@ class TransE(BaseModel):
         self.p_norm = params.p_norm
         self.ent_embeddings = nn.Embedding(ent_tot, self.dim, padding_idx=0)
         self.rel_embeddings = nn.Embedding(rel_tot, self.dim, padding_idx=0)
+        self.ec_flag = False
+        if params.entity_cluster_num > 0:
+            self.indices = utils.get_ent_cluster_indices(params.data, params.embedding_dim, params.entity_cluster_num)
+            self.entity_cluster_embed = nn.Embedding(params.entity_cluster_num, params.embedding_dim, padding_idx=0)
+            self.ec_flag = True
+        
         self.init_weights()
     def init_weights(self):
         nn.init.xavier_uniform_(self.ent_embeddings.weight.data)
         nn.init.xavier_uniform_(self.rel_embeddings.weight.data)
+        if self.params.entity_cluster_num > 0:
+            nn.init.xavier_normal_(self.entity_cluster_embed.weight.data)
     
-    def save_embeddings(self, root_dir):
-        torch.save(self.ent_embeddings.state_dict(), self.root_dir + '/' + self.params.data + '_ent_emb.pkl')
-        torch.save(self.rel_embeddings.state_dict(), self.root_dir + '/' + self.params.data + '_rel_emb.pkl')
+    def get_ent_clu_idx(self, ent):
+        res = self.indices[ent.cpu().numpy()]
+        return torch.Tensor(res).long().to('cuda')
+
+    
+    def save_embeddings(self):
+        torch.save(self.ent_embeddings.state_dict(), self.root_dir + '/dim_' + str(self.params.embedding_dim) + '_ent_emb.pkl')
+        torch.save(self.rel_embeddings.state_dict(), self.root_dir + '/dim_' + str(self.params.embedding_dim) + '_rel_emb.pkl')
 
 
     def _calc(self, h, r, t, predict=False):
@@ -71,6 +84,11 @@ class TransE(BaseModel):
         batch_h = self.ent_embeddings(h)
         batch_r = self.rel_embeddings(r)
         batch_t = self.ent_embeddings(t)
+        if self.ec_flag:
+            h_ = self.get_ent_clu_idx(h)
+            t_ = self.get_ent_clu_idx(t)
+            batch_h += self.entity_cluster_embed(h_)
+            batch_t += self.entity_cluster_embed(t_)
         
         if self.mode == 'kvsall' or self.mode == '1vsall' or predict:
             emb_hr = batch_h + batch_r

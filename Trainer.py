@@ -30,7 +30,8 @@ class Trainer:
         self.save_step = params.save_step
         self.save_best_name = self.save_root + self.model_name + '.emb_' +  str(self.params.embedding_dim)\
                  +'.lr_' + str(self.params.lr) + '.data_' + self.params.data + '.optim_' +  \
-                     self.params.optimizer + '.loss_' + self.params.loss +'.batch_size_' + str(self.params.batch_size) + '.best.ckpt'
+                     self.params.optimizer + '.loss_' + self.params.loss +'.batch_size_' +  \
+                     str(self.params.batch_size) + '.cn_' + str(self.params.entity_cluster_num) + '.best.ckpt'
 
     def calc_loss(self, t, p_score, n_score, size, label=[]):
         if self.loss_name == 'margin':
@@ -44,8 +45,10 @@ class Trainer:
                 # print(p_score.shape, n_score.shape)
                 closs = self.model.loss(torch.cat((p_score, n_score), -1), label)
             elif self.params.mode ==  '1vsall':
+                label = label.to(self.device)
                 closs = self.model.loss(p_score, label)
         elif self.loss_name == 'ce':
+            label = label.to(self.device)
             closs = self.model.loss(p_score, label)
         return closs
 

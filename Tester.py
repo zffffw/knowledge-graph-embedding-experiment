@@ -25,7 +25,7 @@ def get_triples_from_all_datasets(root):
 
 class Tester(object):
     def __init__(self, params, ent_tot, rel_tot, model, test_data_loader):
-        self.device = 'cpu'
+        self.device = torch.device("cuda:" + str(params.cuda) if params.cuda > -1 else "cpu")
         self.model = model.to(self.device)
         self.test_data_loader = test_data_loader
         self.ent_tot = ent_tot
@@ -60,6 +60,7 @@ class Tester(object):
             # print(h, r, t)
             # print(all_h, all_r, all_t)
             # print(all_h.shape, all_r.shape, all_t.shape)
+            h, r, t = h.to(self.device), r.to(self.device), t.to(self.device)
             cur_batch_size = h.shape[0]
             tot += int(cur_batch_size) # tot test size
             all_score_raw = self.model.predict(h, r, t)

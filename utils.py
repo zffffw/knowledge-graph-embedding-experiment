@@ -93,6 +93,12 @@ def get_ent_cluster_indices(dataset, dim, c):
     fr.close()
     return pk['fb']['dim_' + '100' + '_c_' + str(c)]
 
+def get_rel_cluster_indices(dataset, dim, c):
+    fr = open('cluster_relation.pkl', 'rb')
+    pk = pickle.load(fr)
+    fr.close()
+    return pk['fb']['rel_c_300']
+
 '''
  emb is nn.Embedding.
 

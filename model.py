@@ -56,8 +56,10 @@ class TransE(BaseModel):
         self.rel_embeddings = nn.Embedding(rel_tot, self.dim, padding_idx=0)
         self.ec_flag = False
         if params.entity_cluster_num > 0:
+            # self.rel_indices = utils.get_rel_cluster_indices(params.data, params.embedding_dim, params.entity_cluster_num)
             self.indices = utils.get_ent_cluster_indices(params.data, params.embedding_dim, params.entity_cluster_num)
             self.entity_cluster_embed = nn.Embedding(params.entity_cluster_num, params.embedding_dim, padding_idx=0)
+            # self.rel_cluster_embed = nn.Embedding(300, params.embedding_dim, padding_idx=0)
             self.ec_flag = True
         
         self.init_weights()
@@ -66,11 +68,14 @@ class TransE(BaseModel):
         nn.init.xavier_uniform_(self.rel_embeddings.weight.data)
         if self.params.entity_cluster_num > 0:
             nn.init.xavier_normal_(self.entity_cluster_embed.weight.data)
+            # nn.init.xavier_normal_(self.rel_cluster_embed.weight.datas)
     
     def get_ent_clu_idx(self, ent):
         res = self.indices[ent.cpu().numpy()]
         return torch.Tensor(res).long().to('cuda')
-
+    def get_rel_clu_idx(self, rel):
+        res = self.rel_indices[rel.cpu().numpy()]
+        return torch.Tensor(res).long().to('cuda')
     
     def save_embeddings(self):
         torch.save(self.ent_embeddings.state_dict(), self.root_dir + '/dim_' + str(self.params.embedding_dim) + '_ent_emb.pkl')
@@ -87,8 +92,10 @@ class TransE(BaseModel):
         if self.ec_flag:
             h_ = self.get_ent_clu_idx(h)
             t_ = self.get_ent_clu_idx(t)
-            batch_h += self.entity_cluster_embed(h_)
-            batch_t += self.entity_cluster_embed(t_)
+            batch_h = (batch_h + self.entity_cluster_embed(h_)) / 2
+            batch_t = (batch_t + self.entity_cluster_embed(t_)) / 2
+            # r_ = self.get_rel_clu_idx(r)
+            # batch_r = batch_r + self.rel_cluster_embed(r_)
         
         if self.mode == 'kvsall' or self.mode == '1vsall' or predict:
             emb_hr = batch_h + batch_r

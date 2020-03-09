@@ -31,7 +31,7 @@ class Trainer:
         self.save_best_name = self.save_root + self.model_name + '.emb_' +  str(self.params.embedding_dim)\
                  +'.lr_' + str(self.params.lr) + '.data_' + self.params.data + '.optim_' +  \
                      self.params.optimizer + '.loss_' + self.params.loss +'.batch_size_' +  \
-                     str(self.params.batch_size) + '.cn_' + str(self.params.entity_cluster_num) + '.best.ckpt'
+                     str(self.params.batch_size) + '.cn_' + str(self.params.entity_cluster_num) + '_test' + '.best.ckpt'
 
     def calc_loss(self, t, p_score, n_score, size, label=[]):
         if self.loss_name == 'margin':

@@ -79,8 +79,8 @@ class pre_process_data:
             pickle.dump(dataset_, fw_left)
             fr.close()
             fw_left.close()
-        print(multi_left['train'][(218, 0)], multi_left['test'][(218, 0)])
-        print(self.left[(218, 0)])
+        # print(multi_left['train'][(358,27)], multi_left['test'][(358,27)])
+        # print(self.left[(358,27)])
 
              
 
@@ -239,21 +239,24 @@ class pre_process_data:
 
 if __name__=='__main__':
     args1 = {'path':'countries_S1', 'name':'', 'name_list':['countriess1_train.txt', 'countriess1_test.txt', 'countriess1_valid.txt']}
+    args6 = {'path':'countries_S2', 'name':'', 'name_list':['countriess2_train.txt', 'countriess2_test.txt', 'countriess2_valid.txt']}
+    
+    args7 = {'path':'countries_S3', 'name':'', 'name_list':['countriess3_train.txt', 'countriess3_test.txt', 'countriess3_valid.txt']}
+    
     args2 = {'path':'toy', 'name':'', 'name_list':['toy_train.txt', 'toy_test.txt', 'toy_valid.txt']}
     args3 = {'path':'wordnet-mlj12', 'name':'', 'name_list':['wordnet-mlj12-train.txt', 'wordnet-mlj12-test.txt', 'wordnet-mlj12-valid.txt']}
     args4 = {'path':'FB15k-237', 'name':'', 'name_list':['fb237-train.txt', 'fb237-test.txt', 'fb237-valid.txt']}
     args5 = {'path':'FB15k', 'name':'', 'name_list':['freebase_mtr100_mte100-train.txt', 'freebase_mtr100_mte100-test.txt', 'freebase_mtr100_mte100-valid.txt']}
-    argsn = [args1, args2, args3, args4, args5]
-    for args in argsn[:1]:
+    argsn = [args1, args2, args3, args4, args5, args6, args7]
+    for args in argsn[:]:
         t = pre_process_data(args['path'], args['name'], args['name_list'])
         t.run()
-
-        fr = codecs.open(args['path'] + '/' + 'test' + '.pkl', 'rb')
-        t = pickle.load(fr)
-        fr.close()
-        dict1 = {}
-        for i in t:
-            print(t[i])
+        # fr = codecs.open(args['path'] + '/' + 'test' + '.pkl', 'rb')
+        # t = pickle.load(fr)
+        # fr.close()
+        # dict1 = {}
+        # for i in t:
+        #     print(t[i])
             # if t[i]['h'] == 218 and t[i]['r'] == 0:
             #     print(t[i])
         # fr = codecs.open(args['path'] + '/' + 'test' + '.pkl', 'rb')

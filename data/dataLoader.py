@@ -18,13 +18,44 @@ class kge_data_loader(Dataset):
         self.negative_sample_size = params.negative_sample_size
         self.params = params
         self.mode = params.mode
+        self.loss = params.loss
         self.ttype = mode
+        self.left_rel = {}
+        self.right_rel = {}
+
+        #debug
+        
+        # self.root_dir = root_dir
+        # self.file_name = file_name
+        # fr = codecs.open(root_dir + '/' + file_name, 'rb')
+        # self.data_frame = pickle.load(fr)
+        # self.flag_dict = {}
+        # self.ent_tot = ent_tot
+        # self.label_smoothing = 0.01
+        # self.negative_sample_size = 1
+        # self.params = params
+        # self.mode = 'neg_sample'
+        # self.loss = 'margin'
+        # self.ttype = mode
+        # self.left_rel = {}
+        # self.right_rel = {}
+
         
 
         self.create_dict()
     def create_dict(self):
-        for idx in self.data_frame:
-            self.flag_dict[(self.data_frame[idx]['h'], self.data_frame[idx]['r'], self.data_frame[idx]['t'])] = 1
+        name = ['train', 'test', 'valid']
+        for n in name:
+            fr = codecs.open(self.root_dir + '/' + n + '.pkl', 'rb')
+            data = pickle.load(fr)
+            for idx in data:
+                if data[idx]['r'] not in self.left_rel:
+                    self.left_rel[data[idx]['r']] = []
+                self.left_rel[data[idx]['r']].append(data[idx]['h'])
+                if data[idx]['r'] not in self.right_rel:
+                    self.right_rel[data[idx]['r']] = []
+                self.right_rel[data[idx]['r']].append(data[idx]['t'])
+                self.flag_dict[(data[idx]['h'], data[idx]['r'], data[idx]['t'])] = 1
 
     def label_transform(self, idx):
         label = self.data_frame[idx]['t_multi_1']
@@ -54,18 +85,37 @@ class kge_data_loader(Dataset):
             h_ = h
             r = r
             t_ = t
-            while (h_, r, t_) in self.flag_dict:
-                if random.random() > 0.5:
+            tph = len(self.right_rel[r]) / len(self.left_rel[r])
+            hpt = len(self.left_rel[r]) / len(self.right_rel[r])
+            if random.random() < tph/(tph + hpt):
+                h_ = random.randint(0, self.ent_tot - 1)
+                while h_ == h:
                     h_ = random.randint(0, self.ent_tot - 1)
-                    while h_ == h:
-                        h_ = random.randint(0, self.ent_tot - 1)
-                    t_ = t
-                    
-                else:
+                        
+                t_ = t
+            else:
+                t_ = random.randint(0, self.ent_tot - 1)
+                while t_ == t:
                     t_ = random.randint(0, self.ent_tot - 1)
-                    while t_ == t:
-                        t_ = random.randint(0, self.ent_tot - 1)
-                    h_ = h
+                        
+                h_ = h
+            
+
+
+
+
+            # while (h_, r, t_) in self.flag_dict:
+            #     if random.random() > 0.5:
+                    # h_ = random.randint(0, self.ent_tot - 1)
+                    # while h_ == h:
+                    #     h_ = random.randint(0, self.ent_tot - 1)
+                    # t_ = t
+                    
+            #     else:
+                    # t_ = random.randint(0, self.ent_tot - 1)
+                    # while t_ == t:
+                    #     t_ = random.randint(0, self.ent_tot - 1)
+                    # h_ = h
             h_n.append(h_)
             t_n.append(t_)
             r_n.append(r)
@@ -78,9 +128,9 @@ class kge_data_loader(Dataset):
             t_label = []
             h_label = []
             if self.ttype == 'train':
-                if self.params.loss == 'bce':
+                if self.loss == 'bce':
                     t_label = self.label_transform(idx)
-                elif self.params.loss == 'ce':
+                elif self.loss == 'ce':
                     if self.mode == '1vsall':
                         t_label = self.data_frame[idx]['t']
             elif self.ttype == 'test' or self.ttype == 'valid':
@@ -88,7 +138,7 @@ class kge_data_loader(Dataset):
                 h_label = str(self.data_frame[idx]['h_multi_1'])
             else:
                 raise Exception("dataLoader Error: the mode of dataset must be train, valid or test")
-            return {'h':h, 't':t, 'rel':r, 'h_n':h_n, 't_n':t_n, 'rel_n':r_n, 'h_neighbour_1':t_label, 't_neighbour_1':h_label}
+            return {'h':h, 't':t, 'rel':r, 'h_n':h_n, 't_n':t_n, 'rel_n':r_n, 't_multi_1':t_label, 'h_multi_1':h_label}
         except Exception as e:
             raise Exception(e)
             
@@ -98,10 +148,13 @@ class kge_data_loader(Dataset):
 
 
 if __name__=='__main__':
-    train_loader = kge_data_loader('toy', 'train.pkl', ent_tot=16, sample_flag = True, negative_sample_size=0, mode='train')
-    dataset_loader = DataLoader(train_loader, batch_size=1, shuffle=False, num_workers=6, pin_memory=True)
+    train_loader = kge_data_loader(1, 'FB15k', 'test.pkl', ent_tot = 14951, mode='test')
+    dataset_loader = DataLoader(train_loader, batch_size=2, shuffle=False, num_workers=4, pin_memory=True)
     k = 0
-    print(train_loader.__getitem__(20))
+    for n, i in enumerate(dataset_loader):
+        print(i)
+        if n == 1:
+            break
     # start = time.time()
     # for data_val in dataset_loader:
     #     h, r, t, h_n, r_n, t_n = data_val['en1'], data_val['rel'], data_val['en2'], data_val['en1_n'], data_val['rel_n'],data_val['en2_n']

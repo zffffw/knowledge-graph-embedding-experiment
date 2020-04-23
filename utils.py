@@ -82,22 +82,22 @@ def get_data_loader(params, filename_prefix='train'):
 
     print('[ok]')
     if filename_prefix == 'train':
-        return DataLoader(tmp_loader, batch_size=params.batch_size, shuffle=True, num_workers=4, pin_memory=True)
+        return DataLoader(tmp_loader, batch_size=params.batch_size, shuffle=True, num_workers=params.worker, pin_memory=True)
     else:
-        return DataLoader(tmp_loader, batch_size=params.test_batch_size, shuffle=True, num_workers=4, pin_memory=True)
+        return DataLoader(tmp_loader, batch_size=params.test_batch_size, shuffle=False, num_workers=params.worker, pin_memory=True)
 
 
-def get_ent_cluster_indices(dataset, dim, c):
-    fr = open('entity_cluster.pkl', 'rb')
+def get_ent_cluster_indices(name):
+    fr = open(name, 'rb')
     pk = pickle.load(fr)
     fr.close()
-    return pk['fb']['dim_' + '100' + '_c_' + str(c)]
+    return pk
 
-def get_rel_cluster_indices(dataset, dim, c):
-    fr = open('cluster_relation.pkl', 'rb')
+def get_rel_cluster_indices(name):
+    fr = open(name, 'rb')
     pk = pickle.load(fr)
     fr.close()
-    return pk['fb']['rel_c_300']
+    return pk
 
 '''
  emb is nn.Embedding.

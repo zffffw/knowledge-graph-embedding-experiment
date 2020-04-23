@@ -9,6 +9,8 @@ import os
 import sys
 
 
+
+
 # parser define
 parser = argparse.ArgumentParser(description='model')
 parser.add_argument("--data", type=str, default="FB15k",
@@ -75,17 +77,39 @@ parser.add_argument('--mode', type=str, default='neg_sample',
                     help='train mode(neg_sample/1vsall/kvsall.(Default:neg_sample')
 parser.add_argument('--regularize', type=float, default=0.0,
                     help='regularization parameter(Default:0.0)')
-
+parser.add_argument('--seed', type=int, default=0,
+                    help='ramdom seed(Default:0)')
 parser.add_argument('--continue_train', action='store_true', 
                     help='Continue last training? Default: False')
+parser.add_argument('--save_embed', action='store_true', 
+                    help='Save pretrain embedding? Default: False')
+parser.add_argument('--norm_flag1', action='store_true', 
+                    help='norm_flag1')
+parser.add_argument('--norm_flag2', action='store_true', 
+                    help='norm_flag2')
+parser.add_argument('--cluster_ent_name', type=str, default='', 
+                    help="If add entity cluster information or not? Default: ''")
+parser.add_argument('--cluster_rel_name', type=str, default='', 
+                    help="If add relation cluster information or not? Default: ''")
+parser.add_argument('--cluster_rel_name2', type=str, default='', 
+                    help="If add second level relation cluster information or not? Default: ''")
+parser.add_argument('--cluster_ent_name2', type=str, default='', 
+                    help="If add second level entity cluster information or not? Default: ''")
+parser.add_argument('--worker', type=int, default=4, 
+                    help="dataloader worker number Default: 4")
+params = parser.parse_args()
 
-parser.add_argument('--entity_cluster_num', type=int, default=0, 
-                    help='If add entity cluster information or not? Default: 0')
-
+# np.random.seed(params.seed)
+# torch.manual_seed(params.seed)
+# if torch.cuda.is_available():
+#     if params.cuda == -1:
+#         print('WARNING: You have a CUDA device, so you should probably run with --cuda')
+#     else:
+#         torch.cuda.manual_seed_all(params.seed)
                 
                 
     
-params = parser.parse_args()
+
 
 # get_save_model_path(params)
 # input()
@@ -95,8 +119,7 @@ if not os.path.exists('checkpoint/' + params.model):
 if not os.path.exists('checkpoint/' + params.model + '/' + params.data):
     os.mkdir('checkpoint/' + params.model + '/' + params.data)
 
-device = torch.device("cuda:" + str(params.cuda) if params.cuda > -1 else "cpu")
-
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # check training mode
 if params.mode in ['kvsall', '1vsall']:
     if params.negative_sample_size > 0:
@@ -142,9 +165,16 @@ print(model)
 
 
 ent_tot, rel_tot = dataset_param(params.data)
-trainer = Trainer(params, ent_tot, rel_tot, train_data_loader, valid_data_loader, model, opt) 
+trainer = Trainer(params, ent_tot, rel_tot, train_data_loader, valid_data_loader, model, opt)
+
 if params.continue_train:
     trainer.model.load_state_dict(torch.load(trainer.save_best_name, map_location=device))
+    print('continue......')
+if params.save_embed:
+    if not params.continue_train:
+        raise Exception('add continue_train flag to load pretrain embedding...')
+    trainer.model.save_embeddings() 
+    exit(0)
 if params.train_flag:
     print('[begin training]')
     trainer.run()
@@ -160,14 +190,15 @@ if params.test_flag:
         model.load_state_dict(torch.load(model_load_name))
     else:
         model.load_state_dict(torch.load(model_load_name, map_location=torch.device('cpu')))
-    ttype = ['test', '1-1', '1-N', 'N-1', 'N-N']
+    # ttype = ['test', '1-1', '1-N', 'N-1', 'N-N']
+    ttype = ['test']
     for tt in ttype:
-        try:
-            test_data_loader = get_data_loader(params, tt)
-            ent_tot, rel_tot = dataset_param(params.data)
-            tester = Tester(params, ent_tot, rel_tot, model, test_data_loader)
-            tester.test_run(ttype='tail')
-        except Exception as e:
-            print('no test data {}...'.format(tt))
+        # try:
+        test_data_loader = get_data_loader(params, tt)
+        ent_tot, rel_tot = dataset_param(params.data)
+        tester = Tester(params, ent_tot, rel_tot, model, test_data_loader)
+        tester.test_run(mode='test')
+        # except Exception as e:
+        #     print('no test data {}...'.format(tt))
         
         

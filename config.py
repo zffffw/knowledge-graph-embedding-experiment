@@ -9,7 +9,7 @@ class datasets_param:
     }, 'FB15k-237':{
         'root': 'data/FB15k-237',
         'name_list': ['fb237-test.txt', 'fb237-train.txt', 'fb237-valid.txt'],
-        'ent_tot': 14951,
+        'ent_tot': 14541,
         'rel_tot': 237
     }, 'wn':{
         'root' : 'data/wordnet-mlj12',
@@ -20,6 +20,18 @@ class datasets_param:
     }, 'countries_S1':{
         'root': 'data/countries_S1',
         'name_list': ['countriess1_train.txt', 'countriess1_test.txt', 'countriess1_valid.txt'],
+        'ent_tot': 271,
+        'rel_tot': 2
+
+    }, 'countries_S2':{
+        'root': 'data/countries_S2',
+        'name_list': ['countriess2_train.txt', 'countriess2_test.txt', 'countriess2_valid.txt'],
+        'ent_tot': 271,
+        'rel_tot': 2
+
+    }, 'countries_S3':{
+        'root': 'data/countries_S3',
+        'name_list': ['countriess3_train.txt', 'countriess3_test.txt', 'countriess3_valid.txt'],
         'ent_tot': 271,
         'rel_tot': 2
 

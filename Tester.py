@@ -25,7 +25,7 @@ def get_triples_from_all_datasets(root):
 
 class Tester(object):
     def __init__(self, params, ent_tot, rel_tot, model, test_data_loader):
-        self.device = torch.device("cuda:" + str(params.cuda) if params.cuda > -1 else "cpu")
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model = model.to(self.device)
         self.test_data_loader = test_data_loader
         self.ent_tot = ent_tot
@@ -33,6 +33,20 @@ class Tester(object):
         self.head_predict, self.tail_predict = get_triples_from_all_datasets(datasets_param.d[params.data]['root'])
         self.params = params
         self.test_batch_size = params.test_batch_size
+        self.save_root = 'checkpoint/' + params.model + '/' + params.data + '/'
+        self.save_best_name = self.save_root + self.params.model + '.emb_' +  str(self.params.embedding_dim)\
+                 +'.lr_' + str(self.params.lr) + '.data_' + self.params.data + '.optim_' +  \
+                     self.params.optimizer + '.loss_' + self.params.loss +'.batch_size_' +  \
+                     str(self.params.batch_size) 
+        if self.params.cluster_ent_name:
+            self.save_best_name +=  '.cluster_ent_' + self.params.cluster_ent_name 
+        if self.params.cluster_ent_name2:
+            self.save_best_name +=  '.cluster_ent2_' + self.params.cluster_ent_name2 
+        if self.params.cluster_rel_name:
+            self.save_best_name +=  '.cluster_rel_' + self.params.cluster_rel_name
+        if self.params.cluster_rel_name2:
+            self.save_best_name +=  '.cluster_rel2_' + self.params.cluster_rel_name2
+        self.save_best_name += '.best.ckpt.Test.txt'
     
     def replace_all_entities(self, h, r, t, rtype = 'head'):
         if rtype == 'head':
@@ -43,87 +57,127 @@ class Tester(object):
             t = torch.arange(0, self.ent_tot).reshape(1, -1).repeat(r.shape[0], 1)
             r = r.reshape(-1, 1).repeat(1, self.ent_tot)
             h = h.reshape(-1, 1).repeat(1, self.ent_tot)
-        return h, r, t
+        return h.to(self.device), r.to(self.device), t.to(self.device)
 
-    def test_run(self, ttype='tail', hist=[1, 3, 10]):
+    def test_run(self, hist=[1, 3, 10], mode=None):
+        print("#####running test#####")
         self.model.eval()
-        raw_mrr = 0.0
+        filter_mrr_1 = 0.0
+        filter_mr_1 = 0.0
+        Hist_filter_1 = [[] for i in range(10)]
+        filter_mrr_2 = 0.0
+        filter_mr_2 = 0.0
+        Hist_filter_2 = [[] for i in range(10)]
+        filter_mr = 0.0
         filter_mrr = 0.0
-        Hist_raw_n = [[] for i in range(10)]
-        Hist_filter_n = [[] for i in range(10)]
+        Hist_filter = [[] for i in range(10)]
         tot = 0
         for n, data_val in enumerate(self.test_data_loader):
             #only use h, r, t, label
-            h, r, t, tail_label, head_label = data_val['h'], data_val['rel'], data_val['t'], data_val['h_neighbour_1'], data_val['t_neighbour_1']
-            # all_h, all_r, all_t = self.replace_all_entities(h, r, t, ttype)
-            # all_h, all_r, all_t = all_h.to(self.device), all_r.to(self.device), all_t.to(self.device)
-            # print(h, r, t)
-            # print(all_h, all_r, all_t)
-            # print(all_h.shape, all_r.shape, all_t.shape)
+            h, r, t, tail_label, head_label = data_val['h'], data_val['rel'], data_val['t'], data_val['t_multi_1'], data_val['h_multi_1']
             h, r, t = h.to(self.device), r.to(self.device), t.to(self.device)
             cur_batch_size = h.shape[0]
             tot += int(cur_batch_size) # tot test size
-            all_score_raw = self.model.predict(h, r, t)
-            # for i in range(cur_batch_size):
-            #     tmp = self.model.predict(all_h[i], all_r[i], all_t[i])
-            #     if i == 0:
-            #         all_score_raw = tmp
-            #     else:
-            #         all_score_raw = torch.cat((all_score_raw, tmp), -1)
+            all_h_1, all_r_1, all_t_1 = self.replace_all_entities(h, r, t, 'tail')
+            all_h_2, all_r_2, all_t_2 = self.replace_all_entities(h, r, t, 'head')
+            for i in range(cur_batch_size):
+                tmp1 = self.model.predict(all_h_1[i], all_r_1[i], all_t_1[i], isEval=True)
+                tmp2 = self.model.predict(all_h_2[i], all_r_2[i], all_t_2[i], isEval=True)
+                if i == 0:
+                    all_score_filter_1 = tmp1
+                    all_score_filter_2 = tmp2
+                else:
+                    all_score_filter_1 = torch.cat((all_score_filter_1, tmp1), -1)
+                    all_score_filter_2 = torch.cat((all_score_filter_2, tmp2), -1)
+        
             # print(all_score_raw)
-            all_score_raw = all_score_raw.reshape(cur_batch_size, -1).cpu()
+            all_score_filter_1 = all_score_filter_1.reshape(cur_batch_size, -1).cpu()
+            all_score_filter_2 = all_score_filter_2.reshape(cur_batch_size, -1).cpu()
+            # print(all_score_filter.shape)
             # print(all_score_raw)
-            all_score_filter = all_score_raw.clone()
-            label_ = []
-            
+            label_1 = []
+            label_2 = []
+
             # print(all_score_raw.shape, all_score_filter.shape)
             # print(target)
             for i in tail_label:
-                label_.append(eval(i))
+                label_1.append(eval(i))
+            for i in head_label:
+                label_2.append(eval(i))
+            # print(len(label_1), len(label_2))
+
             for i in range(cur_batch_size):
-                # if ttype == 'tail':
-                #     target = t[i].item()
-                # elif ttype == 'head':
-                #     target = h[i].item()
-                target = t[i].item()
-                tmp = all_score_filter[i][target].item()
+                target1 = t[i].item()
+                target2 = h[i].item()
+                # target = t[i].item()
+                tmp1 = all_score_filter_1[i][target1].item()
+                tmp2 = all_score_filter_2[i][target2].item()
                 if self.params.loss in ['margin']:
-                    all_score_filter[i][label_[i]] = 10000
-                elif self.params.loss in ['bce', 'ce']:
-                    all_score_filter[i][label_[i]] = 0.0
-                all_score_filter[i][target] = tmp
-            descending = True if self.params.loss in ['bce', 'ce'] else False
-            sorted_data_raw, indices_raw = torch.sort(all_score_raw, -1, descending=descending)
-            sorted_data_filter, indices_filter = torch.sort(all_score_filter, -1, descending=descending)
+                    all_score_filter_1[i][label_1[i]] = 1000000
+                    all_score_filter_2[i][label_2[i]] = 1000000
+                elif self.params.loss in ['bce', 'ce', 'sfmargin']:
+                    all_score_filter_1[i][label_1[i]] = -1000000
+                    all_score_filter_2[i][label_2[i]] = -1000000
+                all_score_filter_1[i][target1] = tmp1
+                all_score_filter_2[i][target2] = tmp2
+            descending = True if self.params.loss in ['bce', 'ce', 'sfmargin'] else False
+            sorted_data_filter_1, indices_filter_1 = torch.sort(all_score_filter_1, -1, descending=descending)
+            sorted_data_filter_2, indices_filter_2 = torch.sort(all_score_filter_2, -1, descending=descending)
             # print(sorted_data_filter.shape)
             for i in range(cur_batch_size):
-                # if ttype == 'tail':
-                #     target = t[i].item()
-                # elif ttype == 'head':
-                #     target = h[i].item()
-                target = t[i].item()
-                raw_rank = np.argwhere(indices_raw[i] == target)[0][0] + 1.0
-                filter_rank = np.argwhere(indices_filter[i] == target)[0][0] + 1.0
-                raw_mrr += 1.0 / (float(raw_rank))
-                filter_mrr += 1.0 / (float(filter_rank))
+                target1 = t[i].item()
+                target2 = h[i].item()
+                # target = t[i].item()
+                filter_rank_1 = np.where(indices_filter_1[i] == target1)[0][0] + 1.0
+                filter_rank_2 = np.where(indices_filter_2[i] == target2)[0][0] + 1.0
+                # print(h[i], r[i], t[i], raw_rank, filter_rank, len(label_[i]))
+                # input()
+                filter_mr_1 += filter_rank_1
+                filter_mrr_1 += 1.0 / (float(filter_rank_1))
+                filter_mr_2 += filter_rank_2
+                filter_mrr_2 += 1.0 / (float(filter_rank_2))
+                filter_mr += filter_rank_1 + filter_rank_2
+                filter_mrr += 1.0 / (float(filter_rank_1)) + 1.0 / (float(filter_rank_2))
                 for k in range(10):
-                    if filter_rank <= k + 1:
-                        Hist_filter_n[k].append(1.0)
+                    if filter_rank_1 <= float(k + 1):
+                        Hist_filter[k].append(1.0)
+                        Hist_filter_1[k].append(1.0)
                     else:
-                        Hist_filter_n[k].append(0.0)
-                    if raw_rank <= k + 1:
-                        Hist_raw_n[k].append(1.0)
+                        Hist_filter[k].append(0.0)
+                        Hist_filter_1[k].append(0.0)
+                    if filter_rank_2 <= float(k + 1):
+                        Hist_filter[k].append(1.0)
+                        Hist_filter_2[k].append(1.0)
                     else:
-                        Hist_raw_n[k].append(0.0)
-            print('{}, raw_mrr:{:.3f}, filter_mrr:{:.3f}'.format(tot, raw_mrr / tot, filter_mrr / tot), end='\r')
-        print(tot)
-        print("# raw MRR:{:.8f}".format(raw_mrr / tot))
-        print("# filter MRR:{:.8f}".format(filter_mrr / tot))
+                        Hist_filter[k].append(0.0)
+                        Hist_filter_2[k].append(0.0)
+            # print("filter_mrr1:{:.3f},filter_mrr2:{:.3f},filter_mrr:{:.3f}".format(filter_mrr_1/tot, filter_mrr_2/tot, filter_mrr/tot/2), end='\r')
+            print("{:<5}, filter_mr:{:<.1f} filter_mrr:{:.3f}, Hist10:{:.5f} ----{}, {}                    ".format(tot,  filter_mr / tot /2, filter_mrr / tot/2, np.mean(Hist_filter[9]), self.params.cluster_ent_name, self.params.cluster_rel_name), end='\r')
+        tot *= 2
+        print('\n###{}###'.format(mode))
+        print("# filter MR      :{:.1f}".format(filter_mr / tot))
+        print("# filter MR tail :{:.1f}".format(filter_mr_1 / tot*2))
+        print("# filter MR head :{:.1f}".format(filter_mr_2 / tot*2))
+        print("# filter MRR     :{:.3f}".format(filter_mrr / tot))
+        print("# filter MRR tail:{:.3f}".format(filter_mrr_1 / tot*2))
+        print("# filter MRR head:{:.3f}".format(filter_mrr_2 / tot*2))
+        
+        
+        if mode == 'test':
+            self.fw_log = open(self.save_best_name, 'a+', encoding='utf-8')
+            self.fw_log.write('\n###{}###\n'.format(mode))
+            self.fw_log.write("# filter MR:{:.1f}\n".format(filter_mr / tot))
+            self.fw_log.write("# filter MRR:{:.1f}\n".format(filter_mrr / tot))
         for i in hist:
-            print("# raw Hist@{} : {:.3f}".format(i, np.mean(Hist_raw_n[i - 1])))
-        for i in hist:
-            print("# filter Hist@{} : {:.3f}".format(i, np.mean(Hist_filter_n[i - 1])))
-        return raw_mrr, filter_mrr, Hist_raw_n, Hist_filter_n
+            print("# filter Hist@{}      : {:.3f}".format(i, np.mean(Hist_filter[i - 1])))
+            print("# filter Hist tail@{} : {:.3f}".format(i, np.mean(Hist_filter_1[i - 1])))
+            print("# filter Hist head@{} : {:.3f}".format(i, np.mean(Hist_filter_2[i - 1])))
+            if mode == 'test':
+                self.fw_log.write("# filter Hist@{} : {:.3f}\n".format(i, np.mean(Hist_filter[i - 1])))
+        if mode == 'test':
+            self.fw_log.write("{}\t{}\t{}\t{}\t{}".format(filter_mr / tot, filter_mrr / tot, np.mean(Hist_filter[9]),\
+            np.mean(Hist_filter[2]), np.mean(Hist_filter[0])))
+        return filter_mrr / tot, Hist_filter
             
 
                 

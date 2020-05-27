@@ -17,6 +17,12 @@ class datasets_param:
         'ent_tot': 40943,
         'rel_tot': 18
 
+    },'WN18RR':{
+        'root' : 'data/WN18RR',
+        'name_list' : ['rr_test.txt', 'rr_train.txt', 'rr_valid.txt'],
+        'ent_tot': 40943,
+        'rel_tot': 11
+
     }, 'countries_S1':{
         'root': 'data/countries_S1',
         'name_list': ['countriess1_train.txt', 'countriess1_test.txt', 'countriess1_valid.txt'],

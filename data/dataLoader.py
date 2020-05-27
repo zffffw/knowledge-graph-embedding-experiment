@@ -8,54 +8,57 @@ import time
 
 class kge_data_loader(Dataset):
     def __init__(self, params, root_dir, file_name, ent_tot, mode):
-        self.root_dir = root_dir
-        self.file_name = file_name
-        fr = codecs.open(root_dir + '/' + file_name, 'rb')
-        self.data_frame = pickle.load(fr)
-        self.flag_dict = {}
-        self.ent_tot = ent_tot
-        self.label_smoothing = params.label_smoothing
-        self.negative_sample_size = params.negative_sample_size
-        self.params = params
-        self.mode = params.mode
-        self.loss = params.loss
-        self.ttype = mode
-        self.left_rel = {}
-        self.right_rel = {}
-
-        #debug
-        
         # self.root_dir = root_dir
         # self.file_name = file_name
         # fr = codecs.open(root_dir + '/' + file_name, 'rb')
         # self.data_frame = pickle.load(fr)
         # self.flag_dict = {}
         # self.ent_tot = ent_tot
-        # self.label_smoothing = 0.01
-        # self.negative_sample_size = 1
+        # self.label_smoothing = params.label_smoothing
+        # self.negative_sample_size = params.negative_sample_size
         # self.params = params
-        # self.mode = 'neg_sample'
-        # self.loss = 'margin'
+        # self.mode = params.mode
+        # self.loss = params.loss
         # self.ttype = mode
         # self.left_rel = {}
         # self.right_rel = {}
 
+        #debug
         
-
+        self.root_dir = root_dir
+        self.file_name = file_name
+        fr = codecs.open(root_dir + '/' + file_name, 'rb')
+        self.data_frame = pickle.load(fr)
+        self.flag_dict = {}
+        self.ent_tot = ent_tot
+        self.label_smoothing = 0.01
+        self.negative_sample_size = 1
+        self.params = params
+        self.mode = 'neg_sample'
+        self.loss = 'margin'
+        self.ttype = mode
+        self.left_rel = {}
+        self.right_rel = {}
         self.create_dict()
     def create_dict(self):
-        name = ['train', 'test', 'valid']
+        name = ['train']
         for n in name:
             fr = codecs.open(self.root_dir + '/' + n + '.pkl', 'rb')
             data = pickle.load(fr)
             for idx in data:
-                if data[idx]['r'] not in self.left_rel:
-                    self.left_rel[data[idx]['r']] = []
-                self.left_rel[data[idx]['r']].append(data[idx]['h'])
-                if data[idx]['r'] not in self.right_rel:
-                    self.right_rel[data[idx]['r']] = []
-                self.right_rel[data[idx]['r']].append(data[idx]['t'])
-                self.flag_dict[(data[idx]['h'], data[idx]['r'], data[idx]['t'])] = 1
+                h, r, t = data[idx]['h'], data[idx]['r'], data[idx]['t']
+                if (h, r) not in self.right_rel:
+                    self.right_rel[(h, r)] = []
+                self.right_rel[(h, r)].append(t)
+                if (r, t) not in self.left_rel:
+                    self.left_rel[(r, t)] = []
+                self.left_rel[(r, t)].append(h)
+                if n == 'train':
+                    self.flag_dict[(data[idx]['h'], data[idx]['r'], data[idx]['t'])] = 1
+        # print(len(self.flag_dict))
+        # print(len(self.right_rel))
+        # print(len(self.left_rel))
+
 
     def label_transform(self, idx):
         label = self.data_frame[idx]['t_multi_1']
@@ -85,37 +88,28 @@ class kge_data_loader(Dataset):
             h_ = h
             r = r
             t_ = t
-            tph = len(self.right_rel[r]) / len(self.left_rel[r])
-            hpt = len(self.left_rel[r]) / len(self.right_rel[r])
-            if random.random() < tph/(tph + hpt):
-                h_ = random.randint(0, self.ent_tot - 1)
-                while h_ == h:
-                    h_ = random.randint(0, self.ent_tot - 1)
-                        
-                t_ = t
+            # print(tph, hpt)
+            if self.params.bern:
+                tph = len(self.right_rel[(h, r)])
+                hpt = len(self.left_rel[(r, t)])
+                prob = tph/(tph + hpt)
+                while (h_, r, t_) in self.flag_dict:
+                    if random.random() < prob:
+                        h_ = random.randint(0, self.ent_tot - 1)
+                        t_ = t
+                    else:
+                        t_ = random.randint(0, self.ent_tot - 1)
+                        h_ = h
             else:
-                t_ = random.randint(0, self.ent_tot - 1)
-                while t_ == t:
-                    t_ = random.randint(0, self.ent_tot - 1)
-                        
-                h_ = h
-            
-
-
-
-
-            # while (h_, r, t_) in self.flag_dict:
-            #     if random.random() > 0.5:
-                    # h_ = random.randint(0, self.ent_tot - 1)
-                    # while h_ == h:
-                    #     h_ = random.randint(0, self.ent_tot - 1)
-                    # t_ = t
-                    
-            #     else:
-                    # t_ = random.randint(0, self.ent_tot - 1)
-                    # while t_ == t:
-                    #     t_ = random.randint(0, self.ent_tot - 1)
-                    # h_ = h
+                prob = 0.5
+                if random.random() < prob:
+                    while h == h_:
+                        h_ = random.randint(0, self.ent_tot - 1)
+                    t_ = t
+                else:
+                    while t == t_:
+                        t_ = random.randint(0, self.ent_tot - 1)
+                    h_ = h
             h_n.append(h_)
             t_n.append(t_)
             r_n.append(r)
@@ -148,13 +142,14 @@ class kge_data_loader(Dataset):
 
 
 if __name__=='__main__':
-    train_loader = kge_data_loader(1, 'FB15k', 'test.pkl', ent_tot = 14951, mode='test')
-    dataset_loader = DataLoader(train_loader, batch_size=2, shuffle=False, num_workers=4, pin_memory=True)
-    k = 0
-    for n, i in enumerate(dataset_loader):
-        print(i)
-        if n == 1:
-            break
+    train_loader = kge_data_loader(1, 'FB15k', 'test.pkl', ent_tot = 14951, mode='train')
+    train_loader.__getitem__(0)
+    # dataset_loader = DataLoader(train_loader, batch_size=2, shuffle=False, num_workers=4, pin_memory=True)
+    # k = 0
+    # for n, i in enumerate(dataset_loader):
+    #     print(i)
+    #     if n == 1:
+    #         break
     # start = time.time()
     # for data_val in dataset_loader:
     #     h, r, t, h_n, r_n, t_n = data_val['en1'], data_val['rel'], data_val['en2'], data_val['en1_n'], data_val['rel_n'],data_val['en2_n']

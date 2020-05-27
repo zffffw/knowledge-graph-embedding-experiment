@@ -39,15 +39,11 @@ class Trainer:
                      str(self.params.batch_size) 
         if self.params.cluster_ent_name:
             self.save_best_name +=  '.cluster_ent_' + self.params.cluster_ent_name 
-        if self.params.cluster_ent_name2:
-            self.save_best_name +=  '.cluster_ent2_' + self.params.cluster_ent_name2 
         if self.params.cluster_rel_name:
             self.save_best_name +=  '.cluster_rel_' + self.params.cluster_rel_name
-        if self.params.cluster_rel_name2:
-            self.save_best_name +=  '.cluster_rel2_' + self.params.cluster_rel_name2
         
         self.save_best_name += '.best.ckpt'
-        self.fw_log = codecs.open(self.save_best_name + '.txt', 'w', encoding='utf-8')
+        
         
 
         
@@ -86,8 +82,17 @@ class Trainer:
             # print(score, label)
             # time.sleep(2)
             closs = self.model.loss(score, label)
+        elif self.loss_name == 'sploss':
+            n_score = n_score.reshape(-1, self.negative_size)
+            p_score = p_score.reshape(-1, 1)
+            closs = self.model.loss(p_score, n_score)
+
         if self.params.regularize != 0.0:
             closs += self.model.regul(h, r, t)
+        if self.params.regularize_r != 0.0:
+            closs += self.model.regul_r(h, r, t)
+        if self.params.regularize_e != 0.0:
+            closs += self.model.regul_e(h, r, t)
         return closs
 
             
@@ -102,7 +107,7 @@ class Trainer:
         # print(loss_.item())
         
         loss_.backward()
-        if self.model_name == 'ComplEx' or self.model_name == 'DistMult':
+        if self.params.clip:
             nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0, norm_type=2)
         self.optimizer.step()
         # print(self.model.grad)
@@ -120,15 +125,16 @@ class Trainer:
         # raw_mrr1, filter_mrr1, Hist_raw_n, Hist_filter_n = eval_.test_run(ttype='head')
         filter_mrr, Hist_filter_n = eval_.test_run(mode='eval')
         print("#####total#####")
-        print("MRR:{:.6f}, Hist@1:{:.3f}, Hist@3:{:.3f}, Hist@10:{:.3f}".format(filter_mrr, \
+        print("MRR:{:.6f}, Hist@1:{:.6f}, Hist@3:{:.6f}, Hist@10:{:.6f}".format(filter_mrr, \
                                     np.mean(Hist_filter_n[0]), np.mean(Hist_filter_n[2]), np.mean(Hist_filter_n[9])))
         
 
         self.fw_log.write('\n###eval tail###\n')
         self.fw_log.write('MRR:{:.6f}\n'.format(filter_mrr))
         for i in [1, 3, 10]:
-            self.fw_log.write("# filter Hist@{} : {:.3f}\n".format(i, np.mean(Hist_filter_n[i - 1])))
+            self.fw_log.write("# filter Hist@{} : {:.6f}\n".format(i, np.mean(Hist_filter_n[i - 1])))
         if filter_mrr > self.eval_mrr_filter:
+        # if np.mean(Hist_filter_n[10 - 1]) > self.eval_h[10]:
             # print(abs(filter_mrr - self.eval_mrr_filter), np.mean(Hist_filter_n[10 - 1]), 1, '\n')
             self.eval_mrr_filter = filter_mrr
             self.eval_h[10] = np.mean(Hist_filter_n[10 - 1])
@@ -136,7 +142,7 @@ class Trainer:
             # if self.model_name == 'TransE':
             #     self.model.save_embeddings()
             self.early_stop = 0
-        elif abs(filter_mrr - self.eval_mrr_filter) < 1e-4 and np.mean(Hist_filter_n[10 - 1]) > self.eval_h[10]:
+        elif abs(filter_mrr - self.eval_mrr_filter) < 1e-3 and np.mean(Hist_filter_n[10 - 1]) > self.eval_h[10]:
             # print(abs(filter_mrr - self.eval_mrr_filter), np.mean(Hist_filter_n[10 - 1]), 2, '\n')
             self.eval_h[10] = np.mean(Hist_filter_n[10 - 1])
             self.eval_mrr_filter = filter_mrr
@@ -156,6 +162,7 @@ class Trainer:
 
     
     def run(self):
+        self.fw_log = codecs.open(self.save_best_name + '.txt', 'w', encoding='utf-8')
         
         for epoch in range(self.times):
             self.model.train()
@@ -189,7 +196,7 @@ class Trainer:
                 print('epochs:{}, loss:{:.6f}                '.format(epoch + 1, cur_loss))
                 self.fw_log.write('\nepochs:{}, loss:{:.6f}                \n'.format(epoch + 1, cur_loss))
                 mrr = self.eval_model(epoch)
-                stop_num = 4
+                stop_num = 10
                 if self.early_stop >= stop_num:
                     print('eval metric descending over {} period, early stop!!'.format(stop_num))
                     self.fw_log.write('eval metric descending over {} period, early stop!!\n'.format(stop_num))

@@ -40,12 +40,8 @@ class Tester(object):
                      str(self.params.batch_size) 
         if self.params.cluster_ent_name:
             self.save_best_name +=  '.cluster_ent_' + self.params.cluster_ent_name 
-        if self.params.cluster_ent_name2:
-            self.save_best_name +=  '.cluster_ent2_' + self.params.cluster_ent_name2 
         if self.params.cluster_rel_name:
             self.save_best_name +=  '.cluster_rel_' + self.params.cluster_rel_name
-        if self.params.cluster_rel_name2:
-            self.save_best_name +=  '.cluster_rel2_' + self.params.cluster_rel_name2
         self.save_best_name += '.best.ckpt.Test.txt'
     
     def replace_all_entities(self, h, r, t, rtype = 'head'):
@@ -115,12 +111,12 @@ class Tester(object):
                 if self.params.loss in ['margin']:
                     all_score_filter_1[i][label_1[i]] = 1000000
                     all_score_filter_2[i][label_2[i]] = 1000000
-                elif self.params.loss in ['bce', 'ce', 'sfmargin']:
+                elif self.params.loss in ['bce', 'ce', 'sfmargin', 'sploss']:
                     all_score_filter_1[i][label_1[i]] = -1000000
                     all_score_filter_2[i][label_2[i]] = -1000000
                 all_score_filter_1[i][target1] = tmp1
                 all_score_filter_2[i][target2] = tmp2
-            descending = True if self.params.loss in ['bce', 'ce', 'sfmargin'] else False
+            descending = True if self.params.loss in ['bce', 'ce', 'sfmargin', 'sploss'] else False
             sorted_data_filter_1, indices_filter_1 = torch.sort(all_score_filter_1, -1, descending=descending)
             sorted_data_filter_2, indices_filter_2 = torch.sort(all_score_filter_2, -1, descending=descending)
             # print(sorted_data_filter.shape)
@@ -152,31 +148,33 @@ class Tester(object):
                         Hist_filter[k].append(0.0)
                         Hist_filter_2[k].append(0.0)
             # print("filter_mrr1:{:.3f},filter_mrr2:{:.3f},filter_mrr:{:.3f}".format(filter_mrr_1/tot, filter_mrr_2/tot, filter_mrr/tot/2), end='\r')
-            print("{:<5}, filter_mr:{:<.1f} filter_mrr:{:.3f}, Hist10:{:.5f} ----{}, {}                    ".format(tot,  filter_mr / tot /2, filter_mrr / tot/2, np.mean(Hist_filter[9]), self.params.cluster_ent_name, self.params.cluster_rel_name), end='\r')
+            print("{:<5}, filter_mr:{:<.1f} filter_mrr:{:.3f}, Hist10:{:.5f}  {}----{}, {}, {}\                    \
+                    ".format(tot,  filter_mr / tot /2, filter_mrr / tot/2, np.mean(Hist_filter[9]), self.params.model, self.params.data, self.params.cluster_ent_name, self.params.cluster_rel_name), end='\r')
         tot *= 2
         print('\n###{}###'.format(mode))
-        print("# filter MR      :{:.1f}".format(filter_mr / tot))
-        print("# filter MR tail :{:.1f}".format(filter_mr_1 / tot*2))
-        print("# filter MR head :{:.1f}".format(filter_mr_2 / tot*2))
-        print("# filter MRR     :{:.3f}".format(filter_mrr / tot))
-        print("# filter MRR tail:{:.3f}".format(filter_mrr_1 / tot*2))
-        print("# filter MRR head:{:.3f}".format(filter_mrr_2 / tot*2))
+        print("# filter MR      :{:.6f}".format(filter_mr / tot))
+        print("# filter MR tail :{:.6f}".format(filter_mr_1 / tot*2))
+        print("# filter MR head :{:.6f}".format(filter_mr_2 / tot*2))
+        print("# filter MRR     :{:.6f}".format(filter_mrr / tot))
+        print("# filter MRR tail:{:.6f}".format(filter_mrr_1 / tot*2))
+        print("# filter MRR head:{:.6f}".format(filter_mrr_2 / tot*2))
         
         
         if mode == 'test':
             self.fw_log = open(self.save_best_name, 'a+', encoding='utf-8')
             self.fw_log.write('\n###{}###\n'.format(mode))
-            self.fw_log.write("# filter MR:{:.1f}\n".format(filter_mr / tot))
-            self.fw_log.write("# filter MRR:{:.1f}\n".format(filter_mrr / tot))
+            self.fw_log.write("# filter MR:{:.6f}\n".format(filter_mr / tot))
+            self.fw_log.write("# filter MRR:{:.6f}\n".format(filter_mrr / tot))
         for i in hist:
-            print("# filter Hist@{}      : {:.3f}".format(i, np.mean(Hist_filter[i - 1])))
-            print("# filter Hist tail@{} : {:.3f}".format(i, np.mean(Hist_filter_1[i - 1])))
-            print("# filter Hist head@{} : {:.3f}".format(i, np.mean(Hist_filter_2[i - 1])))
+            print("# filter Hist@{}      : {:.6f}".format(i, np.mean(Hist_filter[i - 1])))
+            print("# filter Hist tail@{} : {:.6f}".format(i, np.mean(Hist_filter_1[i - 1])))
+            print("# filter Hist head@{} : {:.6f}".format(i, np.mean(Hist_filter_2[i - 1])))
             if mode == 'test':
                 self.fw_log.write("# filter Hist@{} : {:.3f}\n".format(i, np.mean(Hist_filter[i - 1])))
         if mode == 'test':
-            self.fw_log.write("{}\t{}\t{}\t{}\t{}".format(filter_mr / tot, filter_mrr / tot, np.mean(Hist_filter[9]),\
+            self.fw_log.write("{}\t{}\t{}\t{}\t{}\n".format(filter_mr / tot, filter_mrr / tot, np.mean(Hist_filter[9]),\
             np.mean(Hist_filter[2]), np.mean(Hist_filter[0])))
+            self.fw_log.write("times:{} b1:{} b2:{}\n".format(self.params.times, self.params.b1, self.params.b2))
         return filter_mrr / tot, Hist_filter
             
 

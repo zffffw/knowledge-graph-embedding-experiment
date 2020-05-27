@@ -77,35 +77,43 @@ parser.add_argument('--mode', type=str, default='neg_sample',
                     help='train mode(neg_sample/1vsall/kvsall.(Default:neg_sample')
 parser.add_argument('--regularize', type=float, default=0.0,
                     help='regularization parameter(Default:0.0)')
+parser.add_argument('--b1', type=float, default=1.0,
+                    help='b1 parameter(Default:1.0)')
+parser.add_argument('--b2', type=float, default=1.0,
+                    help='b2 parameter(Default:1.0)')
+parser.add_argument('--regularize_r', type=float, default=0.0,
+                    help='relation cluster regularization parameter(Default:0.0)')
+parser.add_argument('--regularize_e', type=float, default=0.0,
+                    help='entity clsuter regularization parameter(Default:0.0)')
 parser.add_argument('--seed', type=int, default=0,
                     help='ramdom seed(Default:0)')
 parser.add_argument('--continue_train', action='store_true', 
                     help='Continue last training? Default: False')
+parser.add_argument('--bern', action='store_true', 
+                    help='negative sample method. Default: bern')
 parser.add_argument('--save_embed', action='store_true', 
                     help='Save pretrain embedding? Default: False')
 parser.add_argument('--norm_flag1', action='store_true', 
                     help='norm_flag1')
 parser.add_argument('--norm_flag2', action='store_true', 
                     help='norm_flag2')
+parser.add_argument('--clip', action='store_true', 
+                    help='clip')
 parser.add_argument('--cluster_ent_name', type=str, default='', 
                     help="If add entity cluster information or not? Default: ''")
 parser.add_argument('--cluster_rel_name', type=str, default='', 
                     help="If add relation cluster information or not? Default: ''")
-parser.add_argument('--cluster_rel_name2', type=str, default='', 
-                    help="If add second level relation cluster information or not? Default: ''")
-parser.add_argument('--cluster_ent_name2', type=str, default='', 
-                    help="If add second level entity cluster information or not? Default: ''")
 parser.add_argument('--worker', type=int, default=4, 
                     help="dataloader worker number Default: 4")
 params = parser.parse_args()
 
-# np.random.seed(params.seed)
-# torch.manual_seed(params.seed)
-# if torch.cuda.is_available():
-#     if params.cuda == -1:
-#         print('WARNING: You have a CUDA device, so you should probably run with --cuda')
-#     else:
-#         torch.cuda.manual_seed_all(params.seed)
+np.random.seed(params.seed)
+torch.manual_seed(params.seed)
+if torch.cuda.is_available():
+    if params.cuda == -1:
+        print('WARNING: You have a CUDA device, so you should probably run with --cuda')
+    else:
+        torch.cuda.manual_seed_all(params.seed)
                 
                 
     

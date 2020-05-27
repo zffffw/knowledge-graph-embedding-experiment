@@ -239,15 +239,17 @@ class pre_process_data:
 
 if __name__=='__main__':
     args1 = {'path':'countries_S1', 'name':'', 'name_list':['countriess1_train.txt', 'countriess1_test.txt', 'countriess1_valid.txt']}
-    args6 = {'path':'countries_S2', 'name':'', 'name_list':['countriess2_train.txt', 'countriess2_test.txt', 'countriess2_valid.txt']}
+    # args6 = {'path':'countries_S2', 'name':'', 'name_list':['countriess2_train.txt', 'countriess2_test.txt', 'countriess2_valid.txt']}
     
-    args7 = {'path':'countries_S3', 'name':'', 'name_list':['countriess3_train.txt', 'countriess3_test.txt', 'countriess3_valid.txt']}
+    # args7 = {'path':'countries_S3', 'name':'', 'name_list':['countriess3_train.txt', 'countriess3_test.txt', 'countriess3_valid.txt']}
     
-    args2 = {'path':'toy', 'name':'', 'name_list':['toy_train.txt', 'toy_test.txt', 'toy_valid.txt']}
-    args3 = {'path':'wordnet-mlj12', 'name':'', 'name_list':['wordnet-mlj12-train.txt', 'wordnet-mlj12-test.txt', 'wordnet-mlj12-valid.txt']}
-    args4 = {'path':'FB15k-237', 'name':'', 'name_list':['fb237-train.txt', 'fb237-test.txt', 'fb237-valid.txt']}
-    args5 = {'path':'FB15k', 'name':'', 'name_list':['freebase_mtr100_mte100-train.txt', 'freebase_mtr100_mte100-test.txt', 'freebase_mtr100_mte100-valid.txt']}
-    argsn = [args1, args2, args3, args4, args5, args6, args7]
+    # args2 = {'path':'toy', 'name':'', 'name_list':['toy_train.txt', 'toy_test.txt', 'toy_valid.txt']}
+    # args3 = {'path':'wordnet-mlj12', 'name':'', 'name_list':['wordnet-mlj12-train.txt', 'wordnet-mlj12-test.txt', 'wordnet-mlj12-valid.txt']}
+    # args4 = {'path':'FB15k-237', 'name':'', 'name_list':['fb237-train.txt', 'fb237-test.txt', 'fb237-valid.txt']}
+    # args5 = {'path':'FB15k', 'name':'', 'name_list':['freebase_mtr100_mte100-train.txt', 'freebase_mtr100_mte100-test.txt', 'freebase_mtr100_mte100-valid.txt']}
+    # argsn = [args1, args2, args3, args4, args5, args6, args7]
+    args6 = {'path':'WN18RR', 'name':'', 'name_list':['rr_train.txt', 'rr_test.txt', 'rr_valid.txt']}
+    argsn = [args6]
     for args in argsn[:]:
         t = pre_process_data(args['path'], args['name'], args['name_list'])
         t.run()
